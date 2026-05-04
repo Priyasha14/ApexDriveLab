@@ -9,6 +9,7 @@ from config import (
     CAR_NOSE_COLOR,
     FPS,
     HEIGHT,
+    OFF_TRACK_GRIP_SCALE,
     WIDTH,
     WINDOW_TITLE,
 )
@@ -91,7 +92,8 @@ def main() -> None:
                     telemetry.save_csv(telemetry_path())
 
         inputs = read_inputs()
-        car.update(dt, inputs)
+        grip_scale = 1.0 if track.is_on_track(car.position) else OFF_TRACK_GRIP_SCALE
+        car.update(dt, inputs, grip_scale)
         on_track = track.is_on_track(car.position)
         checkpoint_index = track.checkpoint_index_for_position(car.position)
         checkpoints.update(dt, checkpoint_index)

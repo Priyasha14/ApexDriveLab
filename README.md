@@ -11,6 +11,13 @@ python -m venv .venv
 .\.venv\Scripts\python.exe .\main.py
 ```
 
+## Test
+
+```powershell
+cd E:\ApexDriveLab
+.\.venv\Scripts\python.exe .\tests\smoke_tests.py
+```
+
 Controls:
 
 - `W` / `Up`: throttle
@@ -27,7 +34,7 @@ Controls:
 - `main.py`: Pygame setup, event loop, update order, drawing order.
 - `config.py`: constants that are safe to tune first.
 - `physics/car.py`: car state, inputs, acceleration, braking, drag, steering.
-- `physics/tires.py`: tire state structure for later dynamics work.
+- `physics/tires.py`: tire slip, force, load, and grip usage state.
 - `physics/vector_utils.py`: small math helpers around NumPy vectors.
 - `track/track.py`: oval track, boundaries, off-track detection, checkpoint sectors.
 - `track/checkpoints.py`: checkpoint order, lap count, lap timing, best lap.
@@ -38,25 +45,36 @@ Controls:
 
 The car uses position, velocity, heading, and acceleration.
 
-Acceleration is applied in the car's forward direction. Drag acts against velocity.
-Braking removes forward speed. Steering rotates the heading more strongly as speed
-increases. A small lateral damping term keeps the basic model from sliding forever.
+The vehicle model is a simplified bicycle model. The front and rear axles are each
+represented by one tire pair. Steering changes the front wheel angle, slip angle
+creates lateral tire force, and the difference between front and rear lateral force
+rotates the car.
+
+Longitudinal force comes from throttle and braking. Lateral and longitudinal tire
+forces share a friction circle, so heavy braking or acceleration reduces the grip
+left for cornering. Basic weight transfer shifts load forward under braking, rearward
+under acceleration, and laterally while cornering.
 
 Good first tuning constants:
 
 - `MAX_ENGINE_ACCEL`: how quickly the car gains speed.
 - `MAX_BRAKE_ACCEL`: braking strength.
 - `LINEAR_DRAG`: high-speed speed loss.
-- `MAX_STEER_RATE`: how quickly the car rotates.
+- `MAX_STEER_ANGLE`: steering limit.
+- `FRONT_CORNERING_STIFFNESS` / `REAR_CORNERING_STIFFNESS`: handling balance.
+- `TIRE_GRIP_ACCEL`: available tire grip.
 - `TRACK_OUTER_RADIUS` / `TRACK_INNER_RADIUS`: track width and shape.
 
 ## Debugging Behavior
 
-If the car is hard to keep on track, reduce engine acceleration or increase steering.
-If it feels like it never slows down, increase drag or rolling resistance. If it feels
-too floaty, increase lateral damping in `physics/car.py`.
+If the car pushes wide, reduce `FRONT_CORNERING_STIFFNESS` less or increase it
+relative to the rear. If the rear rotates too quickly, reduce `REAR_CORNERING_STIFFNESS`
+or increase `YAW_DAMPING`. If braking makes the car unstable, lower `MAX_BRAKE_ACCEL`
+or move `BRAKE_BIAS_FRONT` slightly forward.
 
 ## Telemetry
 
 Telemetry is saved as CSV files in `runs/`. Press `T` to save during a session.
-Closing the simulator also saves the current session automatically.
+Closing the simulator also saves the current session automatically. The CSV includes
+speed, steering, throttle, brake, longitudinal and lateral acceleration, slip angles,
+load transfer, tire grip usage, and handling balance.

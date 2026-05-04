@@ -16,6 +16,8 @@ class HUD:
             f"Best: {self._format_time(lap_state.best_lap_time)}",
             f"Checkpoint: {lap_state.current_checkpoint + 1}/{CHECKPOINT_COUNT}",
             f"Off track: {'NO' if on_track else 'YES'}",
+            f"Grip use: {car.tire_state.combined_grip_usage * 100:5.1f}%",
+            f"Balance: {car.handling_balance}",
             f"Debug: {'ON' if debug_enabled else 'OFF'}",
         ]
         x, y = 20, 18

@@ -25,7 +25,7 @@ class HUD:
             screen.blit(surface, (x, y))
             y += 28
 
-        help_text = "Controls: W/Up throttle | S/Down brake/reverse | A/D steer | F1 debug | R reset | Esc quit"
+        help_text = "Controls: W/Up throttle | S/Down brake/reverse | A/D steer | T save data | F1 debug | R reset | Esc quit"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
         screen.blit(surface, (20, screen.get_height() - 32))
 

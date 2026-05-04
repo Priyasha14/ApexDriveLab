@@ -12,6 +12,7 @@ env/
 
 # Local/runtime
 .cache/
+runs/
 *.log
 
 # OS/editor

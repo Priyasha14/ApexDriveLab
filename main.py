@@ -1,3 +1,6 @@
+from datetime import datetime
+from pathlib import Path
+
 import pygame
 
 from config import (
@@ -11,6 +14,7 @@ from config import (
 )
 from physics.car import Car, CarInputs
 from physics.vector_utils import from_angle, length
+from telemetry.logger import TelemetryLogger
 from track.checkpoints import CheckpointManager
 from track.track import Track
 from ui.hud import HUD
@@ -45,6 +49,11 @@ def draw_debug_vectors(screen: pygame.Surface, car: Car) -> None:
         pygame.draw.line(screen, (120, 255, 150), origin, (int(velocity[0]), int(velocity[1])), 3)
 
 
+def telemetry_path() -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return Path("runs") / f"telemetry_{timestamp}.csv"
+
+
 def main() -> None:
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -56,6 +65,8 @@ def main() -> None:
     checkpoints = CheckpointManager()
     checkpoints.reset(track.checkpoint_index_for_position(car.position))
     hud = HUD()
+    telemetry = TelemetryLogger()
+    sim_time = 0.0
 
     running = True
     debug_enabled = False
@@ -69,16 +80,23 @@ def main() -> None:
                 if event.key == pygame.K_ESCAPE:
                     running = False
                 elif event.key == pygame.K_r:
+                    telemetry.save_csv(telemetry_path())
+                    telemetry.clear()
+                    sim_time = 0.0
                     car.reset()
                     checkpoints.reset(track.checkpoint_index_for_position(car.position))
                 elif event.key == pygame.K_F1:
                     debug_enabled = not debug_enabled
+                elif event.key == pygame.K_t:
+                    telemetry.save_csv(telemetry_path())
 
         inputs = read_inputs()
         car.update(dt, inputs)
         on_track = track.is_on_track(car.position)
         checkpoint_index = track.checkpoint_index_for_position(car.position)
         checkpoints.update(dt, checkpoint_index)
+        sim_time += dt
+        telemetry.log(sim_time, car, on_track)
 
         screen.fill(BACKGROUND_COLOR)
         track.draw(screen)
@@ -88,6 +106,7 @@ def main() -> None:
         hud.draw(screen, car, checkpoints.state, on_track, debug_enabled)
         pygame.display.flip()
 
+    telemetry.save_csv(telemetry_path())
     pygame.quit()
 
 

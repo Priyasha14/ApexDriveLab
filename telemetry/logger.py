@@ -1,4 +1,6 @@
+import csv
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -23,3 +25,14 @@ class TelemetryLogger:
     def clear(self) -> None:
         self.samples.clear()
 
+    def save_csv(self, path: Path) -> Path | None:
+        if not self.samples:
+            return None
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = list(self.samples[0].keys())
+        with path.open("w", newline="", encoding="utf-8") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(self.samples)
+        return path

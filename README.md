@@ -17,6 +17,8 @@ Controls:
 - `S` / `Down`: brake, then reverse at low speed
 - `A` / `Left`: steer left
 - `D` / `Right`: steer right
+- `T`: save telemetry
+- `F1`: toggle debug vectors
 - `R`: reset car and lap state
 - `Esc`: quit
 
@@ -53,3 +55,8 @@ Good first tuning constants:
 If the car is hard to keep on track, reduce engine acceleration or increase steering.
 If it feels like it never slows down, increase drag or rolling resistance. If it feels
 too floaty, increase lateral damping in `physics/car.py`.
+
+## Telemetry
+
+Telemetry is saved as CSV files in `runs/`. Press `T` to save during a session.
+Closing the simulator also saves the current session automatically.

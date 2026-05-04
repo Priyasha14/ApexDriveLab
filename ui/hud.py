@@ -8,7 +8,7 @@ class HUD:
         self.font = pygame.font.Font(None, 28)
         self.small_font = pygame.font.Font(None, 22)
 
-    def draw(self, screen: pygame.Surface, car, lap_state, on_track: bool) -> None:
+    def draw(self, screen: pygame.Surface, car, lap_state, on_track: bool, debug_enabled: bool) -> None:
         lines = [
             f"Speed: {car.speed_kmh:6.1f} km/h",
             f"Lap: {lap_state.lap_count}",
@@ -16,6 +16,7 @@ class HUD:
             f"Best: {self._format_time(lap_state.best_lap_time)}",
             f"Checkpoint: {lap_state.current_checkpoint + 1}/{CHECKPOINT_COUNT}",
             f"Off track: {'NO' if on_track else 'YES'}",
+            f"Debug: {'ON' if debug_enabled else 'OFF'}",
         ]
         x, y = 20, 18
         for line in lines:
@@ -24,7 +25,7 @@ class HUD:
             screen.blit(surface, (x, y))
             y += 28
 
-        help_text = "Controls: W/Up throttle | S/Down brake/reverse | A/D steer | R reset | Esc quit"
+        help_text = "Controls: W/Up throttle | S/Down brake/reverse | A/D steer | F1 debug | R reset | Esc quit"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
         screen.blit(surface, (20, screen.get_height() - 32))
 
@@ -34,4 +35,3 @@ class HUD:
         minutes = int(value // 60)
         seconds = value % 60
         return f"{minutes:02d}:{seconds:06.3f}"
-

@@ -13,15 +13,16 @@ class LapState:
 
 
 class CheckpointManager:
-    def __init__(self) -> None:
+    def __init__(self, direction: int = -1) -> None:
+        self.direction = -1 if direction < 0 else 1
         self.state = LapState()
 
-    def reset(self) -> None:
-        self.state = LapState()
+    def reset(self, initial_checkpoint: int = 0) -> None:
+        self.state = LapState(current_checkpoint=initial_checkpoint)
 
     def update(self, dt: float, checkpoint_index: int) -> None:
         self.state.lap_time += dt
-        expected = (self.state.current_checkpoint + 1) % CHECKPOINT_COUNT
+        expected = (self.state.current_checkpoint + self.direction) % CHECKPOINT_COUNT
 
         if checkpoint_index != expected:
             return
@@ -33,4 +34,3 @@ class CheckpointManager:
             if self.state.best_lap_time is None or self.state.lap_time < self.state.best_lap_time:
                 self.state.best_lap_time = self.state.lap_time
             self.state.lap_time = 0.0
-

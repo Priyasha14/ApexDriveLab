@@ -10,6 +10,7 @@ from config import (
     WINDOW_TITLE,
 )
 from physics.car import Car, CarInputs
+from physics.vector_utils import from_angle, length
 from track.checkpoints import CheckpointManager
 from track.track import Track
 from ui.hud import HUD
@@ -34,6 +35,16 @@ def draw_car(screen: pygame.Surface, car: Car) -> None:
     pygame.draw.circle(screen, CAR_NOSE_COLOR, polygon[0], 4)
 
 
+def draw_debug_vectors(screen: pygame.Surface, car: Car) -> None:
+    origin = (int(car.position[0]), int(car.position[1]))
+    heading = car.position + from_angle(car.heading) * 70.0
+    pygame.draw.line(screen, (80, 180, 255), origin, (int(heading[0]), int(heading[1])), 3)
+
+    if length(car.velocity) > 1.0:
+        velocity = car.position + car.velocity * 0.22
+        pygame.draw.line(screen, (120, 255, 150), origin, (int(velocity[0]), int(velocity[1])), 3)
+
+
 def main() -> None:
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -43,9 +54,11 @@ def main() -> None:
     track = Track()
     car = Car()
     checkpoints = CheckpointManager()
+    checkpoints.reset(track.checkpoint_index_for_position(car.position))
     hud = HUD()
 
     running = True
+    debug_enabled = False
     while running:
         dt = clock.tick(FPS) / 1000.0
 
@@ -57,7 +70,9 @@ def main() -> None:
                     running = False
                 elif event.key == pygame.K_r:
                     car.reset()
-                    checkpoints.reset()
+                    checkpoints.reset(track.checkpoint_index_for_position(car.position))
+                elif event.key == pygame.K_F1:
+                    debug_enabled = not debug_enabled
 
         inputs = read_inputs()
         car.update(dt, inputs)
@@ -68,7 +83,9 @@ def main() -> None:
         screen.fill(BACKGROUND_COLOR)
         track.draw(screen)
         draw_car(screen, car)
-        hud.draw(screen, car, checkpoints.state, on_track)
+        if debug_enabled:
+            draw_debug_vectors(screen, car)
+        hud.draw(screen, car, checkpoints.state, on_track, debug_enabled)
         pygame.display.flip()
 
     pygame.quit()

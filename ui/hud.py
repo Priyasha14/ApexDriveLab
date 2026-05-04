@@ -1,14 +1,23 @@
 import pygame
 
-from config import CHECKPOINT_COUNT, HUD_COLOR, HUD_WARNING_COLOR
+from config import CHECKPOINT_COUNT, HUD_COLOR, HUD_PANEL_BORDER, HUD_PANEL_COLOR, HUD_WARNING_COLOR
 
 
 class HUD:
     def __init__(self) -> None:
+        self.title_font = pygame.font.Font(None, 34)
         self.font = pygame.font.Font(None, 28)
         self.small_font = pygame.font.Font(None, 22)
 
     def draw(self, screen: pygame.Surface, car, lap_state, on_track: bool, debug_enabled: bool) -> None:
+        panel = pygame.Rect(16, 14, 310, 278)
+        pygame.draw.rect(screen, HUD_PANEL_COLOR, panel, border_radius=8)
+        pygame.draw.rect(screen, HUD_PANEL_BORDER, panel, 1, border_radius=8)
+
+        title = self.title_font.render("ApexDriveLab", True, HUD_COLOR)
+        screen.blit(title, (30, 26))
+        self._draw_speed_bar(screen, car, panel)
+
         lines = [
             f"Speed: {car.speed_kmh:6.1f} km/h",
             f"Lap: {lap_state.lap_count}",
@@ -20,16 +29,19 @@ class HUD:
             f"Balance: {car.handling_balance}",
             f"Debug: {'ON' if debug_enabled else 'OFF'}",
         ]
-        x, y = 20, 18
+        x, y = 30, 92
         for line in lines:
             color = HUD_WARNING_COLOR if line.endswith("YES") else HUD_COLOR
             surface = self.font.render(line, True, color)
             screen.blit(surface, (x, y))
             y += 28
 
+        self._draw_grip_meter(screen, car, pygame.Rect(950, 18, 300, 88))
         help_text = "Controls: W/Up throttle | S/Down brake/reverse | A/D steer | T save data | F1 debug | R reset | Esc quit"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
-        screen.blit(surface, (20, screen.get_height() - 32))
+        help_rect = surface.get_rect(center=(screen.get_width() // 2, screen.get_height() - 24))
+        pygame.draw.rect(screen, HUD_PANEL_COLOR, help_rect.inflate(24, 12), border_radius=7)
+        screen.blit(surface, help_rect)
 
     def _format_time(self, value: float | None) -> str:
         if value is None:
@@ -37,3 +49,32 @@ class HUD:
         minutes = int(value // 60)
         seconds = value % 60
         return f"{minutes:02d}:{seconds:06.3f}"
+
+    def _draw_speed_bar(self, screen: pygame.Surface, car, panel: pygame.Rect) -> None:
+        bar = pygame.Rect(panel.x + 14, panel.y + 58, panel.width - 28, 12)
+        pygame.draw.rect(screen, (31, 38, 45), bar, border_radius=6)
+        fill = bar.copy()
+        fill.width = int(bar.width * min(car.speed_kmh / 240.0, 1.0))
+        pygame.draw.rect(screen, (66, 170, 255), fill, border_radius=6)
+
+    def _draw_grip_meter(self, screen: pygame.Surface, car, rect: pygame.Rect) -> None:
+        pygame.draw.rect(screen, HUD_PANEL_COLOR, rect, border_radius=8)
+        pygame.draw.rect(screen, HUD_PANEL_BORDER, rect, 1, border_radius=8)
+        title = self.small_font.render("Tire Load", True, HUD_COLOR)
+        screen.blit(title, (rect.x + 14, rect.y + 10))
+
+        for index, (label, usage) in enumerate(
+            [
+                ("Front", car.tire_state.front_grip_usage),
+                ("Rear", car.tire_state.rear_grip_usage),
+            ]
+        ):
+            y = rect.y + 38 + index * 22
+            text = self.small_font.render(label, True, HUD_COLOR)
+            screen.blit(text, (rect.x + 14, y - 4))
+            bar = pygame.Rect(rect.x + 78, y, 190, 10)
+            pygame.draw.rect(screen, (31, 38, 45), bar, border_radius=5)
+            fill = bar.copy()
+            fill.width = int(bar.width * min(usage, 1.0))
+            color = (73, 220, 132) if usage < 0.82 else HUD_WARNING_COLOR
+            pygame.draw.rect(screen, color, fill, border_radius=5)

@@ -35,9 +35,31 @@ def read_inputs() -> CarInputs:
 
 def draw_car(screen: pygame.Surface, car: Car) -> None:
     polygon = car.body_polygon()
+    shadow = [(x + 5, y + 6) for x, y in polygon]
+    pygame.draw.polygon(screen, (7, 9, 12), shadow)
     pygame.draw.polygon(screen, CAR_COLOR, polygon)
     pygame.draw.polygon(screen, (18, 20, 24), polygon, 2)
     pygame.draw.circle(screen, CAR_NOSE_COLOR, polygon[0], 4)
+    draw_wheels(screen, car)
+
+
+def draw_wheels(screen: pygame.Surface, car: Car) -> None:
+    forward = from_angle(car.heading)
+    right = from_angle(car.heading + 1.5707963267948966)
+    wheel_offsets = [
+        forward * 13 + right * 11,
+        forward * 13 - right * 11,
+        -forward * 14 + right * 11,
+        -forward * 14 - right * 11,
+    ]
+    for offset in wheel_offsets:
+        center = car.position + offset
+        rect = pygame.Rect(0, 0, 6, 13)
+        rect.center = (int(center[0]), int(center[1]))
+        wheel_surface = pygame.Surface((6, 13), pygame.SRCALPHA)
+        pygame.draw.rect(wheel_surface, (8, 10, 12), wheel_surface.get_rect(), border_radius=2)
+        rotated = pygame.transform.rotate(wheel_surface, -car.heading * 57.2958)
+        screen.blit(rotated, rotated.get_rect(center=rect.center))
 
 
 def draw_debug_vectors(screen: pygame.Surface, car: Car) -> None:
@@ -48,6 +70,46 @@ def draw_debug_vectors(screen: pygame.Surface, car: Car) -> None:
     if length(car.velocity) > 1.0:
         velocity = car.position + car.velocity * 0.22
         pygame.draw.line(screen, (120, 255, 150), origin, (int(velocity[0]), int(velocity[1])), 3)
+
+
+def spawn_particles(particles: list[dict], car: Car, on_track: bool) -> None:
+    grip = car.tire_state.combined_grip_usage
+    if grip < 0.82 and on_track:
+        return
+
+    forward = from_angle(car.heading)
+    right = from_angle(car.heading + 1.5707963267948966)
+    color = (156, 160, 164) if on_track else (117, 86, 49)
+    life = 0.45 if on_track else 0.65
+    for side in (-1, 1):
+        origin = car.position - forward * 16 + right * side * 10
+        particles.append(
+            {
+                "position": origin.copy(),
+                "velocity": -forward * (30 + grip * 40) + right * side * 12,
+                "life": life,
+                "max_life": life,
+                "radius": 4 + grip * 4,
+                "color": color,
+            }
+        )
+
+
+def update_particles(particles: list[dict], dt: float) -> None:
+    for particle in particles[:]:
+        particle["life"] -= dt
+        particle["position"] += particle["velocity"] * dt
+        particle["velocity"] *= max(0.0, 1.0 - 2.8 * dt)
+        if particle["life"] <= 0:
+            particles.remove(particle)
+
+
+def draw_particles(screen: pygame.Surface, particles: list[dict]) -> None:
+    for particle in particles:
+        alpha = max(0.0, particle["life"] / particle["max_life"])
+        radius = max(1, int(particle["radius"] * alpha))
+        color = tuple(int(channel * alpha + 18 * (1.0 - alpha)) for channel in particle["color"])
+        pygame.draw.circle(screen, color, particle["position"].astype(int), radius)
 
 
 def telemetry_path() -> Path:
@@ -68,6 +130,7 @@ def main() -> None:
     hud = HUD()
     telemetry = TelemetryLogger()
     sim_time = 0.0
+    particles: list[dict] = []
 
     running = True
     debug_enabled = False
@@ -99,9 +162,12 @@ def main() -> None:
         checkpoints.update(dt, checkpoint_index)
         sim_time += dt
         telemetry.log(sim_time, car, on_track)
+        spawn_particles(particles, car, on_track)
+        update_particles(particles, dt)
 
         screen.fill(BACKGROUND_COLOR)
         track.draw(screen)
+        draw_particles(screen, particles)
         draw_car(screen, car)
         if debug_enabled:
             draw_debug_vectors(screen, car)

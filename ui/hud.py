@@ -9,8 +9,8 @@ class HUD:
         self.font = pygame.font.Font(None, 28)
         self.small_font = pygame.font.Font(None, 22)
 
-    def draw(self, screen: pygame.Surface, car, lap_state, on_track: bool, debug_enabled: bool) -> None:
-        panel = pygame.Rect(16, 14, 310, 366)
+    def draw(self, screen: pygame.Surface, car, lap_state, on_track: bool, debug_enabled: bool, ai_enabled: bool = False, ai_state=None) -> None:
+        panel = pygame.Rect(16, 14, 310, 422)
         pygame.draw.rect(screen, HUD_PANEL_COLOR, panel, border_radius=8)
         pygame.draw.rect(screen, HUD_PANEL_BORDER, panel, 1, border_radius=8)
 
@@ -30,6 +30,7 @@ class HUD:
             f"Setup: {car.setup.name}",
             f"Aero: {car.aero_state.mode}",
             f"Battery: {car.hybrid_state.charge_fraction * 100:5.1f}%",
+            f"Driver: {'AI' if ai_enabled else 'manual'}",
             f"Debug: {'ON' if debug_enabled else 'OFF'}",
         ]
         x, y = 30, 92
@@ -41,7 +42,9 @@ class HUD:
 
         self._draw_grip_meter(screen, car, pygame.Rect(950, 18, 300, 88))
         self._draw_input_meter(screen, car, pygame.Rect(950, 118, 300, 116))
-        help_text = "Controls: W/S/A/D drive | 1 balanced | 2 stable | 3 rotation | T data | F1 debug | R reset | Esc"
+        if ai_enabled and ai_state:
+            self._draw_ai_meter(screen, ai_state, pygame.Rect(950, 246, 300, 96))
+        help_text = "Controls: W/S/A/D drive | P AI | 1-7 setup | Space deploy | Z/X/C aero | T data | F1 | R | Esc"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
         help_rect = surface.get_rect(center=(screen.get_width() // 2, screen.get_height() - 24))
         pygame.draw.rect(screen, HUD_PANEL_COLOR, help_rect.inflate(24, 12), border_radius=7)
@@ -111,3 +114,15 @@ class HUD:
         marker_x = int(center_x + max(-1.0, min(value, 1.0)) * bar.width * 0.48)
         pygame.draw.line(screen, (66, 170, 255), (marker_x, y - 4), (marker_x, y + 14), 4)
         pygame.draw.line(screen, HUD_PANEL_BORDER, (center_x, y - 3), (center_x, y + 13), 1)
+
+    def _draw_ai_meter(self, screen: pygame.Surface, ai_state, rect: pygame.Rect) -> None:
+        pygame.draw.rect(screen, HUD_PANEL_COLOR, rect, border_radius=8)
+        pygame.draw.rect(screen, HUD_PANEL_BORDER, rect, 1, border_radius=8)
+        lines = [
+            f"AI target: {ai_state.target_speed:5.1f} km/h",
+            f"Path error: {ai_state.path_error:5.1f}",
+            f"Decision: {ai_state.decision}",
+        ]
+        for index, line in enumerate(lines):
+            surface = self.small_font.render(line, True, HUD_COLOR)
+            screen.blit(surface, (rect.x + 14, rect.y + 14 + index * 24))

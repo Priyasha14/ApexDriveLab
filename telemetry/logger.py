@@ -7,7 +7,7 @@ from pathlib import Path
 class TelemetryLogger:
     samples: list[dict] = field(default_factory=list)
 
-    def log(self, time_s: float, car, on_track: bool) -> None:
+    def log(self, time_s: float, car, on_track: bool, ai_state=None) -> None:
         self.samples.append(
             {
                 "time_s": time_s,
@@ -42,6 +42,10 @@ class TelemetryLogger:
                 "lateral_load_transfer": car.lateral_load_transfer,
                 "handling_balance": car.handling_balance,
                 "on_track": on_track,
+                "ai_target_speed": getattr(ai_state, "target_speed", 0.0) if ai_state else 0.0,
+                "ai_path_error": getattr(ai_state, "path_error", 0.0) if ai_state else 0.0,
+                "ai_heading_error": getattr(ai_state, "heading_error", 0.0) if ai_state else 0.0,
+                "ai_decision": getattr(ai_state, "decision", "manual") if ai_state else "manual",
             }
         )
 

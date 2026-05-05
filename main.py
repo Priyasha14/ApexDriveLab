@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pygame
 
+from ai.racing_line import RacingLine
+from ai.rule_driver import RuleBasedDriver
 from config import (
     BACKGROUND_COLOR,
     CAR_COLOR,
@@ -126,6 +128,8 @@ def main() -> None:
     clock = pygame.time.Clock()
 
     track = Track()
+    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    ai_driver = RuleBasedDriver(racing_line)
     car = Car()
     checkpoints = CheckpointManager()
     checkpoints.reset(track.checkpoint_index_for_position(car.position))
@@ -137,6 +141,7 @@ def main() -> None:
     running = True
     debug_enabled = False
     aero_override: str | None = None
+    ai_enabled = False
     while running:
         dt = clock.tick(FPS) / 1000.0
 
@@ -154,6 +159,8 @@ def main() -> None:
                     checkpoints.reset(track.checkpoint_index_for_position(car.position))
                 elif event.key == pygame.K_F1:
                     debug_enabled = not debug_enabled
+                elif event.key == pygame.K_p:
+                    ai_enabled = not ai_enabled
                 elif event.key == pygame.K_t:
                     telemetry.save_csv(telemetry_path())
                 elif event.key == pygame.K_1:
@@ -177,14 +184,14 @@ def main() -> None:
                 elif event.key == pygame.K_c:
                     aero_override = "straight"
 
-        inputs = read_inputs(aero_override)
+        inputs = ai_driver.control(car, track) if ai_enabled else read_inputs(aero_override)
         grip_scale = 1.0 if track.is_on_track(car.position) else OFF_TRACK_GRIP_SCALE
         car.update(dt, inputs, grip_scale)
         on_track = track.is_on_track(car.position)
         checkpoint_index = track.checkpoint_index_for_position(car.position)
         checkpoints.update(dt, checkpoint_index)
         sim_time += dt
-        telemetry.log(sim_time, car, on_track)
+        telemetry.log(sim_time, car, on_track, ai_driver.state if ai_enabled else None)
         spawn_particles(particles, car, on_track)
         update_particles(particles, dt)
 
@@ -194,7 +201,7 @@ def main() -> None:
         draw_car(screen, car)
         if debug_enabled:
             draw_debug_vectors(screen, car)
-        hud.draw(screen, car, checkpoints.state, on_track, debug_enabled)
+        hud.draw(screen, car, checkpoints.state, on_track, debug_enabled, ai_enabled, ai_driver.state)
         pygame.display.flip()
 
     telemetry.save_csv(telemetry_path())

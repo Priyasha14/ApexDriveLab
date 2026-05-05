@@ -5,6 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from physics.car import Car, CarInputs
 from physics.setup import SETUPS
+from telemetry.analysis import summarize
 from telemetry.logger import TelemetryLogger
 from track.checkpoints import CheckpointManager
 from track.track import Track
@@ -68,6 +69,11 @@ def test_telemetry_export(tmp_path: Path) -> None:
     assert "lateral_acceleration" in header
     assert "front_slip_angle" in header
     assert "tire_grip_usage" in header
+
+    summary = summarize(path)
+    assert summary["samples"] == 1
+    assert "max_speed_kmh" in summary
+    assert "handling_balance" in summary
 
 
 def run_all() -> None:

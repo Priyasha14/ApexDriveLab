@@ -82,3 +82,15 @@ Telemetry is saved as CSV files in `runs/`. Press `T` to save during a session.
 Closing the simulator also saves the current session automatically. The CSV includes
 speed, steering, throttle, brake, longitudinal and lateral acceleration, slip angles,
 load transfer, tire grip usage, and handling balance.
+
+Analyze the latest saved run:
+
+```powershell
+.\.venv\Scripts\python.exe .\telemetry\analysis.py
+```
+
+Analyze a specific run:
+
+```powershell
+.\.venv\Scripts\python.exe .\telemetry\analysis.py .\runs\telemetry_YYYYMMDD_HHMMSS.csv
+```

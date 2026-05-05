@@ -27,6 +27,7 @@ class HUD:
             f"Off track: {'NO' if on_track else 'YES'}",
             f"Grip use: {car.tire_state.combined_grip_usage * 100:5.1f}%",
             f"Balance: {car.handling_balance}",
+            f"Setup: {car.setup.name}",
             f"Debug: {'ON' if debug_enabled else 'OFF'}",
         ]
         x, y = 30, 92
@@ -38,7 +39,7 @@ class HUD:
 
         self._draw_grip_meter(screen, car, pygame.Rect(950, 18, 300, 88))
         self._draw_input_meter(screen, car, pygame.Rect(950, 118, 300, 116))
-        help_text = "Controls: W/Up throttle | S/Down brake/reverse | A/D steer | T save data | F1 debug | R reset | Esc quit"
+        help_text = "Controls: W/S/A/D drive | 1 balanced | 2 stable | 3 rotation | T data | F1 debug | R reset | Esc"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
         help_rect = surface.get_rect(center=(screen.get_width() // 2, screen.get_height() - 24))
         pygame.draw.rect(screen, HUD_PANEL_COLOR, help_rect.inflate(24, 12), border_radius=7)

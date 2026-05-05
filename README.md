@@ -24,6 +24,9 @@ Controls:
 - `S` / `Down`: brake, then reverse at low speed
 - `A` / `Left`: steer left
 - `D` / `Right`: steer right
+- `1`: balanced setup
+- `2`: stable setup
+- `3`: rotation setup
 - `T`: save telemetry
 - `F1`: toggle debug vectors
 - `R`: reset car and lap state
@@ -34,6 +37,7 @@ Controls:
 - `main.py`: Pygame setup, event loop, update order, drawing order.
 - `config.py`: constants that are safe to tune first.
 - `physics/car.py`: car state, inputs, acceleration, braking, drag, steering.
+- `physics/setup.py`: setup presets for handling comparison.
 - `physics/tires.py`: tire slip, force, load, and grip usage state.
 - `physics/vector_utils.py`: small math helpers around NumPy vectors.
 - `track/track.py`: oval track, boundaries, off-track detection, checkpoint sectors.

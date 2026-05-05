@@ -4,32 +4,25 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from config import (
-    BRAKE_BIAS_FRONT,
     CAR_LENGTH,
     CAR_START_HEADING,
     CAR_START_POSITION,
     CAR_WIDTH,
     FRONT_AXLE_DISTANCE,
-    FRONT_CORNERING_STIFFNESS,
     LINEAR_DRAG,
     LOAD_TRANSFER_LATERAL,
     LOAD_TRANSFER_LONGITUDINAL,
-    MAX_BRAKE_ACCEL,
-    MAX_ENGINE_ACCEL,
     MAX_REVERSE_ACCEL,
     MAX_STEER_ANGLE,
     MIN_SLIP_SPEED,
     OFF_TRACK_DRAG_MULTIPLIER,
     REAR_AXLE_DISTANCE,
-    REAR_CORNERING_STIFFNESS,
     ROLLING_RESISTANCE,
     STATIC_FRONT_LOAD,
     STATIC_REAR_LOAD,
     STEER_RESPONSE,
-    TIRE_GRIP_ACCEL,
-    YAW_DAMPING,
-    YAW_RESPONSE,
 )
+from physics.setup import SETUPS, CarSetup
 from physics.tires import TireState
 from physics.vector_utils import clamp, from_angle, length, rotate_points, vec2
 
@@ -53,6 +46,7 @@ class Car:
     lateral_acceleration: float = 0.0
     lateral_load_transfer: float = 0.0
     handling_balance: str = "neutral"
+    setup: CarSetup = field(default_factory=lambda: SETUPS["balanced"])
     inputs: CarInputs = field(default_factory=CarInputs)
     tire_state: TireState = field(default_factory=TireState)
 
@@ -91,24 +85,24 @@ class Car:
         self.steering_angle += (target_steering - self.steering_angle) * response
 
         front_slip, rear_slip = self._slip_angles(vx, vy)
-        front_lateral = -FRONT_CORNERING_STIFFNESS * front_slip
-        rear_lateral = -REAR_CORNERING_STIFFNESS * rear_slip
+        front_lateral = -self.setup.front_cornering_stiffness * front_slip
+        rear_lateral = -self.setup.rear_cornering_stiffness * rear_slip
 
-        throttle_accel = inputs.throttle * MAX_ENGINE_ACCEL
-        brake_accel = inputs.brake * MAX_BRAKE_ACCEL
+        throttle_accel = inputs.throttle * self.setup.engine_accel
+        brake_accel = inputs.brake * self.setup.brake_accel
         rear_longitudinal = throttle_accel if vx > -15.0 else throttle_accel * 0.35
         front_longitudinal = 0.0
 
         if self.speed > 2.0:
             brake_direction = -math.copysign(1.0, vx or 1.0)
-            front_longitudinal += brake_direction * brake_accel * BRAKE_BIAS_FRONT
-            rear_longitudinal += brake_direction * brake_accel * (1.0 - BRAKE_BIAS_FRONT)
+            front_longitudinal += brake_direction * brake_accel * self.setup.brake_bias_front
+            rear_longitudinal += brake_direction * brake_accel * (1.0 - self.setup.brake_bias_front)
         elif inputs.brake > 0.0 and inputs.throttle <= 0.0:
             rear_longitudinal -= MAX_REVERSE_ACCEL
 
         front_load, rear_load, lateral_transfer = self._load_distribution(rear_longitudinal + front_longitudinal, front_lateral + rear_lateral)
-        front_limit = TIRE_GRIP_ACCEL * front_load * grip_scale
-        rear_limit = TIRE_GRIP_ACCEL * rear_load * grip_scale
+        front_limit = self.setup.tire_grip_accel * front_load * grip_scale
+        rear_limit = self.setup.tire_grip_accel * rear_load * grip_scale
 
         front_longitudinal, front_lateral, front_usage = self._apply_friction_circle(front_longitudinal, front_lateral, front_limit)
         rear_longitudinal, rear_lateral, rear_usage = self._apply_friction_circle(rear_longitudinal, rear_lateral, rear_limit)
@@ -125,9 +119,9 @@ class Car:
         self.acceleration = forward * local_ax + right * local_ay
         self.velocity += self.acceleration * dt
 
-        yaw_accel = (FRONT_AXLE_DISTANCE * front_lateral - REAR_AXLE_DISTANCE * rear_lateral) * YAW_RESPONSE
+        yaw_accel = (FRONT_AXLE_DISTANCE * front_lateral - REAR_AXLE_DISTANCE * rear_lateral) * self.setup.yaw_response
         self.yaw_rate += yaw_accel * dt
-        self.yaw_rate *= max(0.0, 1.0 - YAW_DAMPING * dt)
+        self.yaw_rate *= max(0.0, 1.0 - self.setup.yaw_damping * dt)
         self.heading += self.yaw_rate * dt
         self.position += self.velocity * dt
         self._settle_when_stopped(inputs)
@@ -155,6 +149,9 @@ class Car:
             (half_l * 0.45, -half_w),
         ]
         return rotate_points(local_points, self.heading, self.position)
+
+    def apply_setup(self, setup: CarSetup) -> None:
+        self.setup = setup
 
     def _slip_angles(self, vx: float, vy: float) -> tuple[float, float]:
         speed_for_slip = math.copysign(max(abs(vx), MIN_SLIP_SPEED), vx if abs(vx) > 1.0 else 1.0)
@@ -199,10 +196,10 @@ class Car:
         front_usage: float,
         rear_usage: float,
     ) -> None:
-        front_lateral_usage = abs(front_lateral) / max(TIRE_GRIP_ACCEL * front_load, 1.0)
-        rear_lateral_usage = abs(rear_lateral) / max(TIRE_GRIP_ACCEL * rear_load, 1.0)
+        front_lateral_usage = abs(front_lateral) / max(self.setup.tire_grip_accel * front_load, 1.0)
+        rear_lateral_usage = abs(rear_lateral) / max(self.setup.tire_grip_accel * rear_load, 1.0)
         lateral_usage = max(front_lateral_usage, rear_lateral_usage)
-        longitudinal_usage = max(abs(front_longitudinal), abs(rear_longitudinal)) / max(TIRE_GRIP_ACCEL, 1.0)
+        longitudinal_usage = max(abs(front_longitudinal), abs(rear_longitudinal)) / max(self.setup.tire_grip_accel, 1.0)
         combined_usage = max(front_usage, rear_usage)
         if front_lateral_usage > rear_lateral_usage + 0.08:
             self.handling_balance = "understeer"

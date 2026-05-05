@@ -16,6 +16,7 @@ class TelemetryLogger:
                 "throttle": car.inputs.throttle,
                 "brake": car.inputs.brake,
                 "steer": car.inputs.steer,
+                "setup": car.setup.name,
                 "steering_angle": car.steering_angle,
                 "yaw_rate": car.yaw_rate,
                 "ax": float(car.acceleration[0]),

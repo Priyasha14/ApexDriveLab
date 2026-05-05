@@ -14,6 +14,7 @@ from config import (
     WINDOW_TITLE,
 )
 from physics.car import Car, CarInputs
+from physics.setup import SETUPS
 from physics.vector_utils import from_angle, length
 from telemetry.logger import TelemetryLogger
 from track.checkpoints import CheckpointManager
@@ -153,6 +154,12 @@ def main() -> None:
                     debug_enabled = not debug_enabled
                 elif event.key == pygame.K_t:
                     telemetry.save_csv(telemetry_path())
+                elif event.key == pygame.K_1:
+                    car.apply_setup(SETUPS["balanced"])
+                elif event.key == pygame.K_2:
+                    car.apply_setup(SETUPS["stable"])
+                elif event.key == pygame.K_3:
+                    car.apply_setup(SETUPS["rotation"])
 
         inputs = read_inputs()
         grip_scale = 1.0 if track.is_on_track(car.position) else OFF_TRACK_GRIP_SCALE

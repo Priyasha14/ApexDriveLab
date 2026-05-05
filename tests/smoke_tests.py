@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from physics.car import Car, CarInputs
+from physics.setup import SETUPS
 from telemetry.logger import TelemetryLogger
 from track.checkpoints import CheckpointManager
 from track.track import Track
@@ -27,6 +28,19 @@ def test_steering_produces_tire_state() -> None:
     assert abs(car.steering_angle) > 0.05
     assert abs(car.tire_state.front_slip_angle) > 0.01
     assert car.tire_state.combined_grip_usage > 0.0
+
+
+def test_setup_switch_changes_vehicle_response() -> None:
+    balanced = Car()
+    rotation = Car()
+    rotation.apply_setup(SETUPS["rotation"])
+
+    for _ in range(120):
+        balanced.update(1 / 60, CarInputs(throttle=1.0, steer=-0.25), 1.0)
+        rotation.update(1 / 60, CarInputs(throttle=1.0, steer=-0.25), 1.0)
+
+    assert rotation.setup.name == "rotation"
+    assert abs(rotation.yaw_rate - balanced.yaw_rate) > 0.01
 
 
 def test_clockwise_checkpoint_lap() -> None:
@@ -61,6 +75,7 @@ def run_all() -> None:
     temp_dir.mkdir(parents=True, exist_ok=True)
     test_straight_line_stability()
     test_steering_produces_tire_state()
+    test_setup_switch_changes_vehicle_response()
     test_clockwise_checkpoint_lap()
     test_telemetry_export(temp_dir)
     print("smoke tests passed")

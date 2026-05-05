@@ -10,12 +10,15 @@ from config import (
     HEIGHT,
     KERB_RED,
     KERB_WHITE,
+    BRAKE_ZONE_COLOR,
+    RACING_LINE_COLOR,
     START_FINISH_COLOR,
     TRACK_CENTER,
     TRACK_COLOR,
     TRACK_GROOVE_COLOR,
     TRACK_INNER_RADIUS,
     TRACK_OUTER_RADIUS,
+    TURN_IN_COLOR,
     WIDTH,
 )
 
@@ -57,6 +60,7 @@ class Track:
 
         pygame.draw.ellipse(screen, TRACK_COLOR, outer_rect)
         self._draw_racing_groove(screen)
+        self._draw_reference_line(screen)
         pygame.draw.ellipse(screen, BOUNDARY_COLOR, outer_rect, 4)
         pygame.draw.ellipse(screen, GRASS_COLOR, inner_rect)
         pygame.draw.ellipse(screen, BOUNDARY_COLOR, inner_rect, 4)
@@ -94,6 +98,31 @@ class Track:
         groove_rect = pygame.Rect(0, 0, groove_radius[0] * 2, groove_radius[1] * 2)
         groove_rect.center = self.center
         pygame.draw.ellipse(screen, TRACK_GROOVE_COLOR, groove_rect, 34)
+
+    def _draw_reference_line(self, screen: pygame.Surface) -> None:
+        points = [self._racing_line_point(math.tau * index / 180) for index in range(181)]
+        pygame.draw.lines(screen, RACING_LINE_COLOR, False, points, 3)
+
+        for start_deg, end_deg, color in [
+            (45, 72, BRAKE_ZONE_COLOR),
+            (135, 162, BRAKE_ZONE_COLOR),
+            (225, 252, BRAKE_ZONE_COLOR),
+            (315, 342, BRAKE_ZONE_COLOR),
+            (73, 84, TURN_IN_COLOR),
+            (163, 174, TURN_IN_COLOR),
+            (253, 264, TURN_IN_COLOR),
+            (343, 354, TURN_IN_COLOR),
+        ]:
+            segment = [self._racing_line_point(math.radians(deg)) for deg in range(start_deg, end_deg + 1, 2)]
+            pygame.draw.lines(screen, color, False, segment, 6)
+
+    def _racing_line_point(self, angle: float) -> tuple[int, int]:
+        blend = 0.56 + 0.10 * math.sin(angle * 2.0 - 0.6)
+        radius = (
+            self.inner_radius[0] + (self.outer_radius[0] - self.inner_radius[0]) * blend,
+            self.inner_radius[1] + (self.outer_radius[1] - self.inner_radius[1]) * blend,
+        )
+        return self._ellipse_point(angle, radius)
 
     def _draw_kerbs(self, screen: pygame.Surface) -> None:
         segments = 72

@@ -37,6 +37,7 @@ class HUD:
             y += 28
 
         self._draw_grip_meter(screen, car, pygame.Rect(950, 18, 300, 88))
+        self._draw_input_meter(screen, car, pygame.Rect(950, 118, 300, 116))
         help_text = "Controls: W/Up throttle | S/Down brake/reverse | A/D steer | T save data | F1 debug | R reset | Esc quit"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
         help_rect = surface.get_rect(center=(screen.get_width() // 2, screen.get_height() - 24))
@@ -78,3 +79,32 @@ class HUD:
             fill.width = int(bar.width * min(usage, 1.0))
             color = (73, 220, 132) if usage < 0.82 else HUD_WARNING_COLOR
             pygame.draw.rect(screen, color, fill, border_radius=5)
+
+    def _draw_input_meter(self, screen: pygame.Surface, car, rect: pygame.Rect) -> None:
+        pygame.draw.rect(screen, HUD_PANEL_COLOR, rect, border_radius=8)
+        pygame.draw.rect(screen, HUD_PANEL_BORDER, rect, 1, border_radius=8)
+        title = self.small_font.render("Driver Input", True, HUD_COLOR)
+        screen.blit(title, (rect.x + 14, rect.y + 10))
+
+        self._draw_horizontal_meter(screen, "Throttle", car.inputs.throttle, rect.x + 14, rect.y + 42, (73, 220, 132))
+        self._draw_horizontal_meter(screen, "Brake", car.inputs.brake, rect.x + 14, rect.y + 68, HUD_WARNING_COLOR)
+        self._draw_steering_meter(screen, car.inputs.steer, rect.x + 14, rect.y + 94)
+
+    def _draw_horizontal_meter(self, screen: pygame.Surface, label: str, value: float, x: int, y: int, color: tuple[int, int, int]) -> None:
+        text = self.small_font.render(label, True, HUD_COLOR)
+        screen.blit(text, (x, y - 5))
+        bar = pygame.Rect(x + 82, y, 180, 10)
+        pygame.draw.rect(screen, (31, 38, 45), bar, border_radius=5)
+        fill = bar.copy()
+        fill.width = int(bar.width * max(0.0, min(value, 1.0)))
+        pygame.draw.rect(screen, color, fill, border_radius=5)
+
+    def _draw_steering_meter(self, screen: pygame.Surface, value: float, x: int, y: int) -> None:
+        text = self.small_font.render("Steer", True, HUD_COLOR)
+        screen.blit(text, (x, y - 5))
+        bar = pygame.Rect(x + 82, y, 180, 10)
+        pygame.draw.rect(screen, (31, 38, 45), bar, border_radius=5)
+        center_x = bar.x + bar.width // 2
+        marker_x = int(center_x + max(-1.0, min(value, 1.0)) * bar.width * 0.48)
+        pygame.draw.line(screen, (66, 170, 255), (marker_x, y - 4), (marker_x, y + 14), 4)
+        pygame.draw.line(screen, HUD_PANEL_BORDER, (center_x, y - 3), (center_x, y + 13), 1)

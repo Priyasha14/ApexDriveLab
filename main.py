@@ -191,7 +191,7 @@ def main() -> None:
         checkpoint_index = track.checkpoint_index_for_position(car.position)
         checkpoints.update(dt, checkpoint_index)
         sim_time += dt
-        telemetry.log(sim_time, car, on_track, ai_driver.state if ai_enabled else None)
+        telemetry.log(sim_time, car, on_track, ai_driver.state if ai_enabled else None, track)
         spawn_particles(particles, car, on_track)
         update_particles(particles, dt)
 

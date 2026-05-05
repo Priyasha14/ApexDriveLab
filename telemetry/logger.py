@@ -7,10 +7,22 @@ from pathlib import Path
 class TelemetryLogger:
     samples: list[dict] = field(default_factory=list)
 
-    def log(self, time_s: float, car, on_track: bool, ai_state=None) -> None:
+    def log(self, time_s: float, car, on_track: bool, ai_state=None, track=None) -> None:
+        lap_progress = 0.0
+        lap_distance = 0.0
+        if track is not None:
+            angle = track.angle_for_position(car.position)
+            lap_progress = ((-angle) % 6.283185307179586) / 6.283185307179586
+            avg_radius = (track.outer_radius[0] + track.outer_radius[1] + track.inner_radius[0] + track.inner_radius[1]) / 4.0
+            lap_distance = lap_progress * 6.283185307179586 * avg_radius
         self.samples.append(
             {
                 "time_s": time_s,
+                "x": float(car.position[0]),
+                "y": float(car.position[1]),
+                "heading": car.heading,
+                "lap_progress": lap_progress,
+                "lap_distance": lap_distance,
                 "speed": car.speed,
                 "speed_kmh": car.speed_kmh,
                 "throttle": car.inputs.throttle,
@@ -39,6 +51,9 @@ class TelemetryLogger:
                 "tire_grip_usage": car.tire_state.combined_grip_usage,
                 "front_load": car.tire_state.front_load,
                 "rear_load": car.tire_state.rear_load,
+                "tire_temperature": car.tire_state.temperature,
+                "tire_wear": car.tire_state.wear,
+                "tire_condition_grip": car.tire_state.condition_grip_multiplier,
                 "lateral_load_transfer": car.lateral_load_transfer,
                 "handling_balance": car.handling_balance,
                 "on_track": on_track,

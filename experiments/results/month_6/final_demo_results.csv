@@ -1,0 +1,15 @@
+name,category,completed_laps,best_lap_time,average_lap_time,off_track_pct,max_grip_usage,score,avg_tire_temp,final_tire_wear,avg_condition_grip
+high_downforce,aero_setup,3,7.683,8.200,0.000,1.000,8.683,75.90,0.0022,0.999
+low_drag,aero_setup,3,7.667,8.183,0.000,1.000,8.667,75.96,0.0022,0.999
+front_biased,aero_balance,3,7.667,8.183,0.000,1.000,8.667,75.96,0.0022,0.999
+rear_biased,aero_balance,3,7.683,8.189,0.000,1.000,8.683,75.92,0.0022,0.999
+conservative_energy,energy,3,7.983,8.506,0.000,1.000,8.983,75.11,0.0019,0.999
+aggressive_energy,energy,3,7.583,8.094,0.000,1.000,8.583,76.27,0.0023,0.999
+fresh_tires,tires,3,7.683,8.194,0.000,1.000,8.683,80.82,0.0022,0.999
+worn_tires,tires,3,7.683,8.194,0.000,1.000,8.683,86.72,0.5550,0.657
+cold_tires,tires,3,7.683,8.194,0.000,1.000,8.683,71.52,0.0026,0.945
+ideal_tires,tires,3,7.683,8.194,0.000,1.000,8.683,80.82,0.0022,0.999
+dry_track,track,3,7.683,8.194,0.000,1.000,8.683,75.93,0.0022,0.999
+wet_track,track,3,9.250,9.922,0.000,1.000,10.250,81.83,0.0059,0.998
+rule_based_default,ai,3,7.683,8.194,0.000,1.000,8.683,75.93,0.0022,0.999
+optimized_rule_based,ai,3,6.633,6.956,0.000,1.000,7.633,79.54,0.0034,0.999

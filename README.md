@@ -44,10 +44,22 @@ Generate the Months 3-5 validation report:
 .\.venv\Scripts\python.exe .\experiments\validate_months_3_5.py
 ```
 
+Generate the final demo report:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\final_demo_report.py
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
 .\.venv\Scripts\python.exe .\telemetry\plots.py .\runs\ai_lap.csv
+```
+
+Replay a saved lap:
+
+```powershell
+.\.venv\Scripts\python.exe .\replay.py .\runs\ai_lap.csv
 ```
 
 Controls:
@@ -91,7 +103,9 @@ Controls:
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.
+- `experiments/final_demo_report.py`: final Month 6 experiment and report generator.
 - `telemetry/plots.py`: Matplotlib telemetry plotting helper.
+- `replay.py`: Pygame replay viewer for saved telemetry laps.
 - `ui/hud.py`: speed, lap time, checkpoint, and off-track display.
 - `telemetry/logger.py`: lightweight telemetry logger.
 

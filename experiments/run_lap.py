@@ -31,12 +31,17 @@ def run_ai_laps(
     setup_name: str = "balanced",
     params: DriverParameters | None = None,
     save_telemetry: bool = False,
+    telemetry_path: Path | None = None,
+    track_grip_multiplier: float = 1.0,
+    initial_tire_temperature: float | None = None,
+    initial_tire_wear: float | None = None,
 ) -> LapResult:
     track = Track()
     racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
     driver = RuleBasedDriver(racing_line, params or DriverParameters())
     car = Car()
     car.apply_setup(SETUPS.get(setup_name, SETUPS["balanced"]))
+    car.set_tire_condition(initial_tire_temperature, initial_tire_wear)
     checkpoints = CheckpointManager()
     checkpoints.reset(track.checkpoint_index_for_position(car.position))
     telemetry = TelemetryLogger()
@@ -49,7 +54,7 @@ def run_ai_laps(
 
     while elapsed < max_time and checkpoints.state.lap_count < laps:
         on_track = track.is_on_track(car.position)
-        grip_scale = 1.0 if on_track else OFF_TRACK_GRIP_SCALE
+        grip_scale = (1.0 if on_track else OFF_TRACK_GRIP_SCALE) * track_grip_multiplier
         inputs = driver.control(car, track)
         car.update(dt, inputs, grip_scale)
         on_track = track.is_on_track(car.position)
@@ -59,10 +64,10 @@ def run_ai_laps(
         samples += 1
         off_track_samples += 0 if on_track else 1
         max_grip = max(max_grip, car.tire_state.combined_grip_usage)
-        telemetry.log(elapsed, car, on_track)
+        telemetry.log(elapsed, car, on_track, driver.state, track)
 
     if save_telemetry:
-        telemetry.save_csv(Path("runs") / "ai_lap.csv")
+        telemetry.save_csv(telemetry_path or Path("runs") / "ai_lap.csv")
 
     return LapResult(
         completed_laps=checkpoints.state.lap_count,

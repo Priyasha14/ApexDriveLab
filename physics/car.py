@@ -129,8 +129,9 @@ class Car:
         front_load, rear_load, lateral_transfer = self._load_distribution(rear_longitudinal + front_longitudinal, front_lateral + rear_lateral)
         aero_front_load = self.aero_state.front_downforce / CAR_MASS * SIM_ACCEL_SCALE / max(self.setup.tire_grip_accel, 1.0)
         aero_rear_load = self.aero_state.rear_downforce / CAR_MASS * SIM_ACCEL_SCALE / max(self.setup.tire_grip_accel, 1.0)
-        front_limit = self.setup.tire_grip_accel * (front_load + aero_front_load) * grip_scale
-        rear_limit = self.setup.tire_grip_accel * (rear_load + aero_rear_load) * grip_scale
+        tire_condition = self._tire_condition_multiplier(self.tire_state.temperature, self.tire_state.wear)
+        front_limit = self.setup.tire_grip_accel * (front_load + aero_front_load) * grip_scale * tire_condition
+        rear_limit = self.setup.tire_grip_accel * (rear_load + aero_rear_load) * grip_scale * tire_condition
 
         front_longitudinal, front_lateral, front_usage = self._apply_friction_circle(front_longitudinal, front_lateral, front_limit)
         rear_longitudinal, rear_lateral, rear_usage = self._apply_friction_circle(rear_longitudinal, rear_lateral, rear_limit)
@@ -165,6 +166,7 @@ class Car:
             rear_load,
             front_usage,
             rear_usage,
+            dt,
         )
 
     def body_polygon(self) -> list[tuple[float, float]]:
@@ -181,6 +183,12 @@ class Car:
 
     def apply_setup(self, setup: CarSetup) -> None:
         self.setup = setup
+
+    def set_tire_condition(self, temperature: float | None = None, wear: float | None = None) -> None:
+        if temperature is not None:
+            self.tire_state.temperature = temperature
+        if wear is not None:
+            self.tire_state.wear = clamp(wear, 0.0, 1.0)
 
     def _slip_angles(self, vx: float, vy: float) -> tuple[float, float]:
         speed_for_slip = math.copysign(max(abs(vx), MIN_SLIP_SPEED), vx if abs(vx) > 1.0 else 1.0)
@@ -212,6 +220,16 @@ class Car:
             self.velocity *= 0.0
             self.yaw_rate = 0.0
 
+    def _tire_condition_multiplier(self, temperature: float, wear: float) -> float:
+        if temperature < 70.0:
+            temp_factor = 0.45 + max(0.0, temperature - 20.0) / 50.0 * 0.40
+        elif temperature <= 105.0:
+            temp_factor = 1.0
+        else:
+            temp_factor = max(0.72, 1.0 - (temperature - 105.0) / 55.0 * 0.28)
+        wear_factor = max(0.38, 1.0 - wear * 0.62)
+        return clamp(temp_factor * wear_factor, 0.30, 1.05)
+
     def _update_tire_state(
         self,
         front_slip: float,
@@ -224,7 +242,10 @@ class Car:
         rear_load: float,
         front_usage: float,
         rear_usage: float,
+        dt: float,
     ) -> None:
+        previous_temperature = self.tire_state.temperature
+        previous_wear = self.tire_state.wear
         front_lateral_usage = abs(front_lateral) / max(self.setup.tire_grip_accel * front_load, 1.0)
         rear_lateral_usage = abs(rear_lateral) / max(self.setup.tire_grip_accel * rear_load, 1.0)
         lateral_usage = max(front_lateral_usage, rear_lateral_usage)
@@ -237,7 +258,14 @@ class Car:
         else:
             self.handling_balance = "neutral"
 
+        target_temperature = 62.0 + combined_usage * 45.0 + abs(self.lateral_acceleration) * 0.006
+        temperature = previous_temperature + (target_temperature - previous_temperature) * min(1.0, dt * 0.18)
+        wear = previous_wear + (combined_usage * combined_usage) * dt * 0.00075
+
         self.tire_state = TireState(
+            temperature=temperature,
+            wear=clamp(wear, 0.0, 1.0),
+            condition_grip_multiplier=self._tire_condition_multiplier(temperature, clamp(wear, 0.0, 1.0)),
             front_slip_angle=front_slip,
             rear_slip_angle=rear_slip,
             front_lateral_force=front_lateral,

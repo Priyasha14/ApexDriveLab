@@ -27,6 +27,14 @@ Controls:
 - `1`: balanced setup
 - `2`: stable setup
 - `3`: rotation setup
+- `4`: high-downforce aero setup
+- `5`: low-drag aero setup
+- `6`: front-biased aero setup
+- `7`: rear-biased aero setup
+- `Space`: deploy hybrid energy
+- `Z`: automatic active aero
+- `X`: force corner aero mode
+- `C`: force straight aero mode
 - `T`: save telemetry
 - `F1`: toggle debug vectors
 - `R`: reset car and lap state
@@ -37,6 +45,8 @@ Controls:
 - `main.py`: Pygame setup, event loop, update order, drawing order.
 - `config.py`: constants that are safe to tune first.
 - `physics/car.py`: car state, inputs, acceleration, braking, drag, steering.
+- `physics/aero.py`: drag, downforce, aero balance, and active aero modes.
+- `physics/hybrid.py`: battery energy, deployment, and recovery.
 - `physics/setup.py`: setup presets for handling comparison.
 - `physics/tires.py`: tire slip, force, load, and grip usage state.
 - `physics/vector_utils.py`: small math helpers around NumPy vectors.
@@ -59,6 +69,14 @@ forces share a friction circle, so heavy braking or acceleration reduces the gri
 left for cornering. Basic weight transfer shifts load forward under braking, rearward
 under acceleration, and laterally while cornering.
 
+Aerodynamic drag and downforce scale with speed squared. Corner aero mode produces
+more downforce and drag; straight aero mode reduces both. Downforce increases tire
+normal load, so high speed can create more grip while drag limits top speed.
+
+The hybrid system stores energy, deploys extra power when requested, and recovers
+energy during braking or lift-off. This makes energy management part of the driving
+problem instead of a free speed boost.
+
 Good first tuning constants:
 
 - `MAX_ENGINE_ACCEL`: how quickly the car gains speed.
@@ -67,6 +85,8 @@ Good first tuning constants:
 - `MAX_STEER_ANGLE`: steering limit.
 - `FRONT_CORNERING_STIFFNESS` / `REAR_CORNERING_STIFFNESS`: handling balance.
 - `TIRE_GRIP_ACCEL`: available tire grip.
+- `DRAG_COEFFICIENT` / `DOWNFORCE_COEFFICIENT`: aero tradeoff.
+- `AERO_BALANCE_FRONT`: front/rear downforce split.
 - `TRACK_OUTER_RADIUS` / `TRACK_INNER_RADIUS`: track width and shape.
 
 ## Debugging Behavior
@@ -81,7 +101,8 @@ or move `BRAKE_BIAS_FRONT` slightly forward.
 Telemetry is saved as CSV files in `runs/`. Press `T` to save during a session.
 Closing the simulator also saves the current session automatically. The CSV includes
 speed, steering, throttle, brake, longitudinal and lateral acceleration, slip angles,
-load transfer, tire grip usage, and handling balance.
+load transfer, tire grip usage, handling balance, aero mode, downforce, drag, battery
+energy, deployment power, and recovery power.
 
 Analyze the latest saved run:
 

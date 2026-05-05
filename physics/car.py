@@ -4,10 +4,13 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from config import (
+    AIR_DENSITY,
     CAR_LENGTH,
+    CAR_MASS,
     CAR_START_HEADING,
     CAR_START_POSITION,
     CAR_WIDTH,
+    FRONTAL_AREA,
     FRONT_AXLE_DISTANCE,
     LINEAR_DRAG,
     LOAD_TRANSFER_LATERAL,
@@ -18,10 +21,13 @@ from config import (
     OFF_TRACK_DRAG_MULTIPLIER,
     REAR_AXLE_DISTANCE,
     ROLLING_RESISTANCE,
+    SIM_ACCEL_SCALE,
     STATIC_FRONT_LOAD,
     STATIC_REAR_LOAD,
     STEER_RESPONSE,
 )
+from physics.aero import AeroState, choose_aero_mode, compute_aero_state
+from physics.hybrid import HybridState
 from physics.setup import SETUPS, CarSetup
 from physics.tires import TireState
 from physics.vector_utils import clamp, from_angle, length, rotate_points, vec2
@@ -32,6 +38,8 @@ class CarInputs:
     throttle: float = 0.0
     brake: float = 0.0
     steer: float = 0.0
+    deploy_hybrid: bool = False
+    aero_mode: str | None = None
 
 
 @dataclass
@@ -47,6 +55,8 @@ class Car:
     lateral_load_transfer: float = 0.0
     handling_balance: str = "neutral"
     setup: CarSetup = field(default_factory=lambda: SETUPS["balanced"])
+    aero_state: AeroState = field(default_factory=AeroState)
+    hybrid_state: HybridState = field(default_factory=HybridState)
     inputs: CarInputs = field(default_factory=CarInputs)
     tire_state: TireState = field(default_factory=TireState)
 
@@ -63,6 +73,8 @@ class Car:
         self.handling_balance = "neutral"
         self.inputs = CarInputs()
         self.tire_state = TireState()
+        self.aero_state = AeroState()
+        self.hybrid_state.reset()
 
     @property
     def speed(self) -> float:
@@ -79,6 +91,19 @@ class Car:
         vx = float(np.dot(self.velocity, forward))
         vy = float(np.dot(self.velocity, right))
         signed_forward_speed = vx
+        speed_mps = self.speed / SIM_ACCEL_SCALE
+        aero_mode = choose_aero_mode(self.speed_kmh, inputs.steer, inputs.aero_mode)
+        self.aero_state = compute_aero_state(
+            speed_mps=speed_mps,
+            mode_name=aero_mode,
+            air_density=AIR_DENSITY,
+            drag_coefficient=self.setup.drag_coefficient,
+            lift_coefficient=self.setup.downforce_coefficient,
+            frontal_area=FRONTAL_AREA,
+            aero_balance_front=self.setup.aero_balance_front,
+            mass=CAR_MASS,
+            sim_accel_scale=SIM_ACCEL_SCALE,
+        )
 
         target_steering = inputs.steer * MAX_STEER_ANGLE
         response = clamp(STEER_RESPONSE * dt, 0.0, 1.0)
@@ -88,7 +113,8 @@ class Car:
         front_lateral = -self.setup.front_cornering_stiffness * front_slip
         rear_lateral = -self.setup.rear_cornering_stiffness * rear_slip
 
-        throttle_accel = inputs.throttle * self.setup.engine_accel
+        hybrid_accel = self.hybrid_state.update(dt, speed_mps, inputs.deploy_hybrid, inputs.brake, inputs.throttle) * SIM_ACCEL_SCALE
+        throttle_accel = inputs.throttle * self.setup.engine_accel + hybrid_accel
         brake_accel = inputs.brake * self.setup.brake_accel
         rear_longitudinal = throttle_accel if vx > -15.0 else throttle_accel * 0.35
         front_longitudinal = 0.0
@@ -101,8 +127,10 @@ class Car:
             rear_longitudinal -= MAX_REVERSE_ACCEL
 
         front_load, rear_load, lateral_transfer = self._load_distribution(rear_longitudinal + front_longitudinal, front_lateral + rear_lateral)
-        front_limit = self.setup.tire_grip_accel * front_load * grip_scale
-        rear_limit = self.setup.tire_grip_accel * rear_load * grip_scale
+        aero_front_load = self.aero_state.front_downforce / CAR_MASS * SIM_ACCEL_SCALE / max(self.setup.tire_grip_accel, 1.0)
+        aero_rear_load = self.aero_state.rear_downforce / CAR_MASS * SIM_ACCEL_SCALE / max(self.setup.tire_grip_accel, 1.0)
+        front_limit = self.setup.tire_grip_accel * (front_load + aero_front_load) * grip_scale
+        rear_limit = self.setup.tire_grip_accel * (rear_load + aero_rear_load) * grip_scale
 
         front_longitudinal, front_lateral, front_usage = self._apply_friction_circle(front_longitudinal, front_lateral, front_limit)
         rear_longitudinal, rear_lateral, rear_usage = self._apply_friction_circle(rear_longitudinal, rear_lateral, rear_limit)
@@ -111,7 +139,8 @@ class Car:
         drag = -vx * abs(vx) * LINEAR_DRAG * 0.004 * drag_multiplier
         rolling = -math.copysign(ROLLING_RESISTANCE, vx) if abs(vx) > 1.0 else 0.0
 
-        local_ax = front_longitudinal + rear_longitudinal + drag + rolling
+        aero_drag = -math.copysign(self.aero_state.drag_acceleration, vx) if abs(vx) > 1.0 else 0.0
+        local_ax = front_longitudinal + rear_longitudinal + drag + rolling + aero_drag
         local_ay = front_lateral + rear_lateral
         self.longitudinal_acceleration = local_ax
         self.lateral_acceleration = local_ay

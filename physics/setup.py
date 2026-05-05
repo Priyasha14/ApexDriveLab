@@ -2,6 +2,9 @@ from dataclasses import dataclass
 
 from config import (
     BRAKE_BIAS_FRONT,
+    AERO_BALANCE_FRONT,
+    DOWNFORCE_COEFFICIENT,
+    DRAG_COEFFICIENT,
     FRONT_CORNERING_STIFFNESS,
     MAX_BRAKE_ACCEL,
     MAX_ENGINE_ACCEL,
@@ -23,6 +26,9 @@ class CarSetup:
     tire_grip_accel: float = TIRE_GRIP_ACCEL
     yaw_response: float = YAW_RESPONSE
     yaw_damping: float = YAW_DAMPING
+    drag_coefficient: float = DRAG_COEFFICIENT
+    downforce_coefficient: float = DOWNFORCE_COEFFICIENT
+    aero_balance_front: float = AERO_BALANCE_FRONT
 
 
 SETUPS = {
@@ -42,5 +48,24 @@ SETUPS = {
         yaw_response=YAW_RESPONSE * 1.16,
         yaw_damping=YAW_DAMPING * 0.92,
     ),
+    "high_downforce": CarSetup(
+        name="high_downforce",
+        drag_coefficient=DRAG_COEFFICIENT * 1.10,
+        downforce_coefficient=DOWNFORCE_COEFFICIENT * 1.18,
+    ),
+    "low_drag": CarSetup(
+        name="low_drag",
+        drag_coefficient=DRAG_COEFFICIENT * 0.86,
+        downforce_coefficient=DOWNFORCE_COEFFICIENT * 0.82,
+    ),
+    "front_aero": CarSetup(
+        name="front_aero",
+        aero_balance_front=0.50,
+        front_cornering_stiffness=FRONT_CORNERING_STIFFNESS * 1.03,
+    ),
+    "rear_aero": CarSetup(
+        name="rear_aero",
+        aero_balance_front=0.40,
+        rear_cornering_stiffness=REAR_CORNERING_STIFFNESS * 1.03,
+    ),
 }
-

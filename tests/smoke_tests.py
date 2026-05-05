@@ -44,6 +44,24 @@ def test_setup_switch_changes_vehicle_response() -> None:
     assert abs(rotation.yaw_rate - balanced.yaw_rate) > 0.01
 
 
+def test_aero_and_hybrid_states_update() -> None:
+    car = Car()
+    for _ in range(180):
+        car.update(1 / 60, CarInputs(throttle=1.0, deploy_hybrid=True, aero_mode="straight"), 1.0)
+
+    assert car.aero_state.mode == "straight"
+    assert car.aero_state.drag_force > 0.0
+    assert car.aero_state.downforce > 0.0
+    assert car.hybrid_state.energy < car.hybrid_state.capacity * 0.70
+
+    energy_after_deploy = car.hybrid_state.energy
+    for _ in range(60):
+        car.update(1 / 60, CarInputs(brake=1.0, aero_mode="corner"), 1.0)
+
+    assert car.aero_state.mode == "corner"
+    assert car.hybrid_state.energy >= energy_after_deploy
+
+
 def test_clockwise_checkpoint_lap() -> None:
     checkpoints = CheckpointManager()
     checkpoints.reset(0)
@@ -82,6 +100,7 @@ def run_all() -> None:
     test_straight_line_stability()
     test_steering_produces_tire_state()
     test_setup_switch_changes_vehicle_response()
+    test_aero_and_hybrid_states_update()
     test_clockwise_checkpoint_lap()
     test_telemetry_export(temp_dir)
     print("smoke tests passed")

@@ -22,7 +22,7 @@ from track.track import Track
 from ui.hud import HUD
 
 
-def read_inputs() -> CarInputs:
+def read_inputs(aero_override: str | None) -> CarInputs:
     keys = pygame.key.get_pressed()
     throttle = 1.0 if keys[pygame.K_w] or keys[pygame.K_UP] else 0.0
     brake = 1.0 if keys[pygame.K_s] or keys[pygame.K_DOWN] else 0.0
@@ -31,7 +31,8 @@ def read_inputs() -> CarInputs:
         steer -= 1.0
     if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
         steer += 1.0
-    return CarInputs(throttle=throttle, brake=brake, steer=steer)
+    deploy_hybrid = keys[pygame.K_SPACE]
+    return CarInputs(throttle=throttle, brake=brake, steer=steer, deploy_hybrid=deploy_hybrid, aero_mode=aero_override)
 
 
 def draw_car(screen: pygame.Surface, car: Car) -> None:
@@ -135,6 +136,7 @@ def main() -> None:
 
     running = True
     debug_enabled = False
+    aero_override: str | None = None
     while running:
         dt = clock.tick(FPS) / 1000.0
 
@@ -160,8 +162,22 @@ def main() -> None:
                     car.apply_setup(SETUPS["stable"])
                 elif event.key == pygame.K_3:
                     car.apply_setup(SETUPS["rotation"])
+                elif event.key == pygame.K_4:
+                    car.apply_setup(SETUPS["high_downforce"])
+                elif event.key == pygame.K_5:
+                    car.apply_setup(SETUPS["low_drag"])
+                elif event.key == pygame.K_6:
+                    car.apply_setup(SETUPS["front_aero"])
+                elif event.key == pygame.K_7:
+                    car.apply_setup(SETUPS["rear_aero"])
+                elif event.key == pygame.K_z:
+                    aero_override = None
+                elif event.key == pygame.K_x:
+                    aero_override = "corner"
+                elif event.key == pygame.K_c:
+                    aero_override = "straight"
 
-        inputs = read_inputs()
+        inputs = read_inputs(aero_override)
         grip_scale = 1.0 if track.is_on_track(car.position) else OFF_TRACK_GRIP_SCALE
         car.update(dt, inputs, grip_scale)
         on_track = track.is_on_track(car.position)

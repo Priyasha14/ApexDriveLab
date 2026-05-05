@@ -10,7 +10,7 @@ class HUD:
         self.small_font = pygame.font.Font(None, 22)
 
     def draw(self, screen: pygame.Surface, car, lap_state, on_track: bool, debug_enabled: bool) -> None:
-        panel = pygame.Rect(16, 14, 310, 278)
+        panel = pygame.Rect(16, 14, 310, 366)
         pygame.draw.rect(screen, HUD_PANEL_COLOR, panel, border_radius=8)
         pygame.draw.rect(screen, HUD_PANEL_BORDER, panel, 1, border_radius=8)
 
@@ -28,6 +28,8 @@ class HUD:
             f"Grip use: {car.tire_state.combined_grip_usage * 100:5.1f}%",
             f"Balance: {car.handling_balance}",
             f"Setup: {car.setup.name}",
+            f"Aero: {car.aero_state.mode}",
+            f"Battery: {car.hybrid_state.charge_fraction * 100:5.1f}%",
             f"Debug: {'ON' if debug_enabled else 'OFF'}",
         ]
         x, y = 30, 92

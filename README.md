@@ -32,6 +32,18 @@ Compare setups with random-search tuning:
 .\.venv\Scripts\python.exe .\experiments\compare_setups.py
 ```
 
+Compare two saved telemetry runs:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\compare_runs.py .\runs\manual.csv .\runs\ai_lap.csv
+```
+
+Generate the Months 3-5 validation report:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\validate_months_3_5.py
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -77,6 +89,8 @@ Controls:
 - `ai/gym_env.py`: optional Gymnasium wrapper for later reinforcement learning.
 - `experiments/run_lap.py`: headless AI lap runner.
 - `experiments/compare_setups.py`: setup comparison experiment.
+- `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
+- `experiments/validate_months_3_5.py`: repeatable validation report generator.
 - `telemetry/plots.py`: Matplotlib telemetry plotting helper.
 - `ui/hud.py`: speed, lap time, checkpoint, and off-track display.
 - `telemetry/logger.py`: lightweight telemetry logger.

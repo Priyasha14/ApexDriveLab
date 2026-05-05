@@ -17,6 +17,8 @@ class DriverParameters:
     brake_aggressiveness: float = 0.030
     aero_switch_speed: float = 118.0
     hybrid_deploy_speed: float = 80.0
+    enable_active_aero: bool = True
+    enable_hybrid: bool = True
 
 
 @dataclass
@@ -49,8 +51,8 @@ class RuleBasedDriver:
             brake = max(brake, 0.35)
             throttle = 0.0
 
-        aero_mode = "straight" if speed_plan.target_speed_kmh > self.params.aero_switch_speed and abs(steer) < 0.22 else "corner"
-        deploy = speed_error > 12.0 and car.speed_kmh > self.params.hybrid_deploy_speed and car.hybrid_state.charge_fraction > 0.18
+        aero_mode = "straight" if self.params.enable_active_aero and speed_plan.target_speed_kmh > self.params.aero_switch_speed and abs(steer) < 0.22 else "corner"
+        deploy = self.params.enable_hybrid and speed_error > 12.0 and car.speed_kmh > self.params.hybrid_deploy_speed and car.hybrid_state.charge_fraction > 0.18
 
         self.state = DriverState(
             target_speed=speed_plan.target_speed_kmh,

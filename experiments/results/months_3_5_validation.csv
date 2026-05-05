@@ -1,0 +1,12 @@
+label,setup,completed_laps,elapsed_time,best_lap_time,average_lap_time,off_track_pct,max_grip_usage,score,notes
+default_ai,balanced,3,24.583,7.683,8.194,0.000,1.000,8.683,
+default_ai,high_downforce,3,24.600,7.683,8.200,0.000,1.000,8.683,
+default_ai,low_drag,3,24.550,7.667,8.183,0.000,1.000,8.667,
+default_ai,front_aero,3,24.550,7.667,8.183,0.000,1.000,8.667,
+default_ai,rear_aero,3,24.567,7.683,8.189,0.000,1.000,8.683,
+no_active_aero,balanced,3,24.617,7.683,8.206,0.000,1.000,8.683,
+no_hybrid,balanced,3,25.517,7.983,8.506,0.000,1.000,8.983,
+no_aero_or_hybrid,balanced,3,25.550,8.000,8.517,0.000,1.000,9.000,
+optimized_ai,balanced,3,19.683,6.317,6.561,0.000,1.000,7.317,random_search_10_retested_3_laps
+optimized_ai,low_drag,3,19.667,6.317,6.556,0.000,1.000,7.317,random_search_10_retested_3_laps
+optimized_ai,high_downforce,3,19.700,6.333,6.567,0.000,1.000,7.333,random_search_10_retested_3_laps

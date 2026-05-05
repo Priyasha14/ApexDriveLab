@@ -22,6 +22,7 @@ class LapResult:
     off_track_pct: float
     max_grip_usage: float
     best_lap_time: float | None
+    average_lap_time: float | None
 
 
 def run_ai_laps(
@@ -69,6 +70,7 @@ def run_ai_laps(
         off_track_pct=off_track_samples / max(samples, 1) * 100.0,
         max_grip_usage=max_grip,
         best_lap_time=checkpoints.state.best_lap_time,
+        average_lap_time=elapsed / checkpoints.state.lap_count if checkpoints.state.lap_count else None,
     )
 
 

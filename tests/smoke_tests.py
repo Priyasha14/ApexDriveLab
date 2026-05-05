@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from physics.car import Car, CarInputs
 from physics.setup import SETUPS
 from experiments.run_lap import run_ai_laps
+from ai.optimizer import random_search
 from telemetry.analysis import summarize
 from telemetry.logger import TelemetryLogger
 from track.checkpoints import CheckpointManager
@@ -101,6 +102,12 @@ def test_rule_driver_completes_clean_lap() -> None:
     assert result.off_track_pct < 5.0
 
 
+def test_optimizer_returns_valid_candidate() -> None:
+    result = random_search(iterations=2, seed=3)
+    assert result.lap_result.completed_laps == 1
+    assert result.score > 0.0
+
+
 def run_all() -> None:
     temp_dir = Path("runs") / "_smoke"
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -111,6 +118,7 @@ def run_all() -> None:
     test_clockwise_checkpoint_lap()
     test_telemetry_export(temp_dir)
     test_rule_driver_completes_clean_lap()
+    test_optimizer_returns_valid_candidate()
     print("smoke tests passed")
 
 

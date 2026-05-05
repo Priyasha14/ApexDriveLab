@@ -18,6 +18,26 @@ cd E:\ApexDriveLab
 .\.venv\Scripts\python.exe .\tests\smoke_tests.py
 ```
 
+## Headless Experiments
+
+Run one AI lap:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\run_lap.py --laps 1
+```
+
+Compare setups with random-search tuning:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\compare_setups.py
+```
+
+Plot telemetry after installing Matplotlib:
+
+```powershell
+.\.venv\Scripts\python.exe .\telemetry\plots.py .\runs\ai_lap.csv
+```
+
 Controls:
 
 - `W` / `Up`: throttle
@@ -52,6 +72,12 @@ Controls:
 - `physics/vector_utils.py`: small math helpers around NumPy vectors.
 - `track/track.py`: oval track, boundaries, off-track detection, checkpoint sectors.
 - `track/checkpoints.py`: checkpoint order, lap count, lap timing, best lap.
+- `ai/rule_driver.py`: pure-pursuit steering, speed planning, braking, aero, and hybrid decisions.
+- `ai/optimizer.py`: random-search tuning for rule-driver parameters.
+- `ai/gym_env.py`: optional Gymnasium wrapper for later reinforcement learning.
+- `experiments/run_lap.py`: headless AI lap runner.
+- `experiments/compare_setups.py`: setup comparison experiment.
+- `telemetry/plots.py`: Matplotlib telemetry plotting helper.
 - `ui/hud.py`: speed, lap time, checkpoint, and off-track display.
 - `telemetry/logger.py`: lightweight telemetry logger.
 

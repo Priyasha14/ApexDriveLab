@@ -1,6 +1,8 @@
 from pathlib import Path
 import sys
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from physics.car import Car, CarInputs
@@ -8,6 +10,7 @@ from physics.setup import SETUPS
 from experiments.run_lap import run_ai_laps
 from ai.optimizer import random_search
 from ai.neural_policy import NeuralPolicy, action_to_inputs
+from ai.vae import DrivingStateVAE
 from telemetry.analysis import summarize
 from telemetry.logger import TelemetryLogger
 from track.checkpoints import CheckpointManager
@@ -125,6 +128,23 @@ def test_neural_policy_predicts_valid_inputs(tmp_path: Path) -> None:
     assert loaded_action.shape == (5,)
 
 
+def test_vae_encode_decode_roundtrip(tmp_path: Path) -> None:
+    vae = DrivingStateVAE.create(seed=8)
+    observations = np.zeros((6, 14), dtype=np.float32)
+    vae.set_normalization(observations)
+    mean, logvar = vae.encode(observations)
+    reconstruction = vae.reconstruct(observations)
+    model_path = tmp_path / "vae.npz"
+    vae.save(model_path)
+    loaded = DrivingStateVAE.load(model_path)
+    loaded_mean, _ = loaded.encode(observations)
+
+    assert mean.shape == (6, 2)
+    assert logvar.shape == (6, 2)
+    assert reconstruction.shape == observations.shape
+    assert loaded_mean.shape == mean.shape
+
+
 def run_all() -> None:
     temp_dir = Path("runs") / "_smoke"
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -137,6 +157,7 @@ def run_all() -> None:
     test_rule_driver_completes_clean_lap()
     test_optimizer_returns_valid_candidate()
     test_neural_policy_predicts_valid_inputs(temp_dir)
+    test_vae_encode_decode_roundtrip(temp_dir)
     print("smoke tests passed")
 
 

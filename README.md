@@ -62,6 +62,18 @@ Run the trained neural driver:
 .\.venv\Scripts\python.exe .\experiments\run_neural_lap.py --model .\models\neural_policy.npz --laps 1 --save-telemetry
 ```
 
+Train the VAE driving-state model:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\train_vae.py --laps 5 --rollouts 5 --epochs 450
+```
+
+Plot the VAE latent driving-state space:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\analyze_vae_latent.py --model .\models\driving_state_vae.npz
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -112,9 +124,12 @@ Controls:
 - `ai/optimizer.py`: random-search tuning for rule-driver parameters.
 - `ai/gym_env.py`: optional Gymnasium wrapper for later reinforcement learning.
 - `ai/neural_policy.py`: small NumPy neural network trained with imitation learning.
+- `ai/vae.py`: variational autoencoder for compact driving-state representation.
 - `experiments/run_lap.py`: headless AI lap runner.
 - `experiments/train_neural_policy.py`: collects rule-driver demonstrations and trains the neural driver.
 - `experiments/run_neural_lap.py`: evaluates a saved neural policy in closed-loop simulation.
+- `experiments/train_vae.py`: trains a VAE on driving-state observations.
+- `experiments/analyze_vae_latent.py`: exports and plots the VAE latent space.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.

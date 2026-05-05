@@ -74,6 +74,12 @@ Plot the VAE latent driving-state space:
 .\.venv\Scripts\python.exe .\experiments\analyze_vae_latent.py --model .\models\driving_state_vae.npz
 ```
 
+Plot VAE input vs reconstructed driving-state signals:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\plot_vae_reconstruction.py --model .\models\driving_state_vae.npz
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -130,6 +136,7 @@ Controls:
 - `experiments/run_neural_lap.py`: evaluates a saved neural policy in closed-loop simulation.
 - `experiments/train_vae.py`: trains a VAE on driving-state observations.
 - `experiments/analyze_vae_latent.py`: exports and plots the VAE latent space.
+- `experiments/plot_vae_reconstruction.py`: plots VAE input signals against reconstructed signals.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.

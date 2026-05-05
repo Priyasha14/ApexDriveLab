@@ -7,6 +7,7 @@ from physics.car import Car, CarInputs
 from physics.setup import SETUPS
 from experiments.run_lap import run_ai_laps
 from ai.optimizer import random_search
+from ai.neural_policy import NeuralPolicy, action_to_inputs
 from telemetry.analysis import summarize
 from telemetry.logger import TelemetryLogger
 from track.checkpoints import CheckpointManager
@@ -108,6 +109,22 @@ def test_optimizer_returns_valid_candidate() -> None:
     assert result.score > 0.0
 
 
+def test_neural_policy_predicts_valid_inputs(tmp_path: Path) -> None:
+    policy = NeuralPolicy.create(seed=5)
+    action = policy.predict(policy.observation_mean)
+    inputs = action_to_inputs(action)
+    model_path = tmp_path / "policy.npz"
+    policy.save(model_path)
+    loaded = NeuralPolicy.load(model_path)
+    loaded_action = loaded.predict(loaded.observation_mean)
+
+    assert action.shape == (5,)
+    assert -1.0 <= inputs.steer <= 1.0
+    assert 0.0 <= inputs.throttle <= 1.0
+    assert 0.0 <= inputs.brake <= 1.0
+    assert loaded_action.shape == (5,)
+
+
 def run_all() -> None:
     temp_dir = Path("runs") / "_smoke"
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -119,6 +136,7 @@ def run_all() -> None:
     test_telemetry_export(temp_dir)
     test_rule_driver_completes_clean_lap()
     test_optimizer_returns_valid_candidate()
+    test_neural_policy_predicts_valid_inputs(temp_dir)
     print("smoke tests passed")
 
 

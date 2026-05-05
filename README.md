@@ -50,6 +50,18 @@ Generate the final demo report:
 .\.venv\Scripts\python.exe .\experiments\final_demo_report.py
 ```
 
+Train the neural driver from rule-based demonstration laps:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\train_neural_policy.py --laps 5 --epochs 300
+```
+
+Run the trained neural driver:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\run_neural_lap.py --model .\models\neural_policy.npz --laps 1 --save-telemetry
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -99,7 +111,10 @@ Controls:
 - `ai/rule_driver.py`: pure-pursuit steering, speed planning, braking, aero, and hybrid decisions.
 - `ai/optimizer.py`: random-search tuning for rule-driver parameters.
 - `ai/gym_env.py`: optional Gymnasium wrapper for later reinforcement learning.
+- `ai/neural_policy.py`: small NumPy neural network trained with imitation learning.
 - `experiments/run_lap.py`: headless AI lap runner.
+- `experiments/train_neural_policy.py`: collects rule-driver demonstrations and trains the neural driver.
+- `experiments/run_neural_lap.py`: evaluates a saved neural policy in closed-loop simulation.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.

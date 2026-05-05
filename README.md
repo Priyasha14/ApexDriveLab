@@ -80,6 +80,14 @@ Plot VAE input vs reconstructed driving-state signals:
 .\.venv\Scripts\python.exe .\experiments\plot_vae_reconstruction.py --model .\models\driving_state_vae.npz
 ```
 
+Train an 8D VAE and a VAE-latent neural driver:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\train_vae.py --latent-size 8 --model-path .\models\driving_state_vae_8d.npz --epochs 450
+.\.venv\Scripts\python.exe .\experiments\train_vae_policy.py --vae-model .\models\driving_state_vae_8d.npz --epochs 500
+.\.venv\Scripts\python.exe .\experiments\run_vae_policy_lap.py --vae-model .\models\driving_state_vae_8d.npz --policy .\models\vae_latent_policy.npz --laps 1 --save-telemetry
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -130,6 +138,7 @@ Controls:
 - `ai/optimizer.py`: random-search tuning for rule-driver parameters.
 - `ai/gym_env.py`: optional Gymnasium wrapper for later reinforcement learning.
 - `ai/neural_policy.py`: small NumPy neural network trained with imitation learning.
+- `ai/latent_policy.py`: neural control head trained on VAE latent states.
 - `ai/vae.py`: variational autoencoder for compact driving-state representation.
 - `experiments/run_lap.py`: headless AI lap runner.
 - `experiments/train_neural_policy.py`: collects rule-driver demonstrations and trains the neural driver.
@@ -137,6 +146,8 @@ Controls:
 - `experiments/train_vae.py`: trains a VAE on driving-state observations.
 - `experiments/analyze_vae_latent.py`: exports and plots the VAE latent space.
 - `experiments/plot_vae_reconstruction.py`: plots VAE input signals against reconstructed signals.
+- `experiments/train_vae_policy.py`: trains a driver on VAE latent features.
+- `experiments/run_vae_policy_lap.py`: evaluates the VAE-latent driver.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.

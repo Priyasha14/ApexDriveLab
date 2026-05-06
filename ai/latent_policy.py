@@ -46,6 +46,18 @@ class LatentPolicy:
     def latent_size(self) -> int:
         return int(self.w1.shape[0])
 
+    def copy(self) -> "LatentPolicy":
+        return LatentPolicy(
+            w1=self.w1.copy(),
+            b1=self.b1.copy(),
+            w2=self.w2.copy(),
+            b2=self.b2.copy(),
+            w3=self.w3.copy(),
+            b3=self.b3.copy(),
+            latent_mean=self.latent_mean.copy(),
+            latent_std=self.latent_std.copy(),
+        )
+
     def set_normalization(self, latent: np.ndarray) -> None:
         self.latent_mean = latent.mean(axis=0).astype(np.float32)
         self.latent_std = np.maximum(latent.std(axis=0), 1e-3).astype(np.float32)

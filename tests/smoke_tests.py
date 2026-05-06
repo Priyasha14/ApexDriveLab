@@ -148,6 +148,7 @@ def test_vae_encode_decode_roundtrip(tmp_path: Path) -> None:
 
 def test_latent_policy_predicts_valid_inputs(tmp_path: Path) -> None:
     policy = LatentPolicy.create(latent_size=8, seed=10)
+    policy_copy = policy.copy()
     action = policy.predict(np.zeros(8, dtype=np.float32))
     inputs = policy.control(np.zeros(8, dtype=np.float32))
     model_path = tmp_path / "latent_policy.npz"
@@ -159,6 +160,7 @@ def test_latent_policy_predicts_valid_inputs(tmp_path: Path) -> None:
     assert 0.0 <= inputs.throttle <= 1.0
     assert 0.0 <= inputs.brake <= 1.0
     assert loaded.latent_size == 8
+    assert policy_copy.latent_size == policy.latent_size
 
 
 def run_all() -> None:

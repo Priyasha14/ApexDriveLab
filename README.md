@@ -88,6 +88,12 @@ Train an 8D VAE and a VAE-latent neural driver:
 .\.venv\Scripts\python.exe .\experiments\run_vae_policy_lap.py --vae-model .\models\driving_state_vae_8d.npz --policy .\models\vae_latent_policy.npz --laps 1 --save-telemetry
 ```
 
+Optimize the VAE-latent driver with evolutionary search:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\optimize_vae_policy.py --iterations 32
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -148,6 +154,7 @@ Controls:
 - `experiments/plot_vae_reconstruction.py`: plots VAE input signals against reconstructed signals.
 - `experiments/train_vae_policy.py`: trains a driver on VAE latent features.
 - `experiments/run_vae_policy_lap.py`: evaluates the VAE-latent driver.
+- `experiments/optimize_vae_policy.py`: mutates and scores VAE-latent policies to improve lap performance.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.

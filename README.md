@@ -100,6 +100,13 @@ Evaluate all drivers across setup, tire, and grip conditions:
 .\.venv\Scripts\python.exe .\experiments\evaluate_drivers.py --repeats 2
 ```
 
+Plot learning curves and VAE anomaly ROC:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\plot_learning_curves.py
+.\.venv\Scripts\python.exe .\experiments\evaluate_vae_anomaly.py
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -162,6 +169,8 @@ Controls:
 - `experiments/run_vae_policy_lap.py`: evaluates the VAE-latent driver.
 - `experiments/optimize_vae_policy.py`: mutates and scores VAE-latent policies to improve lap performance.
 - `experiments/evaluate_drivers.py`: compares all driver variants across setup, tire, and grip conditions.
+- `experiments/plot_learning_curves.py`: plots VAE, policy, and optimizer training curves.
+- `experiments/evaluate_vae_anomaly.py`: evaluates VAE reconstruction error as an anomaly detector with ROC/AUC.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.

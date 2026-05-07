@@ -94,6 +94,12 @@ Optimize the VAE-latent driver with evolutionary search:
 .\.venv\Scripts\python.exe .\experiments\optimize_vae_policy.py --iterations 32
 ```
 
+Evaluate all drivers across setup, tire, and grip conditions:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\evaluate_drivers.py --repeats 2
+```
+
 Plot telemetry after installing Matplotlib:
 
 ```powershell
@@ -155,6 +161,7 @@ Controls:
 - `experiments/train_vae_policy.py`: trains a driver on VAE latent features.
 - `experiments/run_vae_policy_lap.py`: evaluates the VAE-latent driver.
 - `experiments/optimize_vae_policy.py`: mutates and scores VAE-latent policies to improve lap performance.
+- `experiments/evaluate_drivers.py`: compares all driver variants across setup, tire, and grip conditions.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.

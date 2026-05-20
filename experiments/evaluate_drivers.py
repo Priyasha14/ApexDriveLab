@@ -103,7 +103,7 @@ def control_for_driver(driver: str, models: DriverModels, rule_driver: RuleBased
 
 def run_driver_condition(driver: str, condition: EvaluationCondition, models: DriverModels, repeat: int) -> EvaluationResult:
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     rule_driver = RuleBasedDriver(racing_line, DriverParameters())
     car = Car()
     car.apply_setup(SETUPS.get(condition.setup_name, SETUPS["balanced"]))

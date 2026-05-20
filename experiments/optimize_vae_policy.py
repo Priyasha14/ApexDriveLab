@@ -44,7 +44,7 @@ def evaluate_policy(
     telemetry_path: Path | None = None,
 ) -> PolicyEvaluation:
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     car = Car()
     car.apply_setup(SETUPS.get(setup_name, SETUPS["balanced"]))
     checkpoints = CheckpointManager()

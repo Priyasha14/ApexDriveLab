@@ -37,7 +37,7 @@ def run_ai_laps(
     initial_tire_wear: float | None = None,
 ) -> LapResult:
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     driver = RuleBasedDriver(racing_line, params or DriverParameters())
     car = Car()
     car.apply_setup(SETUPS.get(setup_name, SETUPS["balanced"]))

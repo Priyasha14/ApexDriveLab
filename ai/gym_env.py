@@ -24,7 +24,7 @@ class ApexDriveEnv(gym.Env if gym else object):
         if gym is None:
             raise ImportError("Install gymnasium to use ApexDriveEnv.")
         self.track = Track()
-        self.racing_line = RacingLine(self.track.center, self.track.inner_radius, self.track.outer_radius)
+        self.racing_line = RacingLine.from_track(self.track)
         self.car = Car()
         self.checkpoints = CheckpointManager()
         self.dt = 1.0 / FPS

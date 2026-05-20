@@ -37,7 +37,7 @@ def run_vae_policy_laps(
     telemetry_path: Path | None = None,
 ) -> VAEPolicyLapResult:
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     vae = DrivingStateVAE.load(vae_model)
     policy = LatentPolicy.load(policy_path)
     car = Car()

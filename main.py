@@ -190,6 +190,15 @@ def ellipse_world_point(track: Track, angle: float, radius: tuple[float, float])
     )
 
 
+def track_edge_point(track: Track, progress: float, side: float) -> tuple[float, float]:
+    center = track.point_at_progress(progress)
+    ahead = track.point_at_progress(progress + 8.0)
+    tangent = math.atan2(ahead[1] - center[1], ahead[0] - center[0])
+    normal = tangent + math.pi / 2.0
+    offset = track.road_width * 0.5 * side
+    return center[0] + math.cos(normal) * offset, center[1] + math.sin(normal) * offset
+
+
 def wrap_angle_delta(angle: float) -> float:
     while angle > math.pi:
         angle -= math.tau
@@ -243,18 +252,17 @@ def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track, camera_sta
             [(stripe_x, horizon_y), (stripe_x + 56, horizon_y), (stripe_x + 360, HEIGHT), (stripe_x + 250, HEIGHT)],
         )
 
-    current_angle = track.angle_for_position(camera_position)
-    average_radius = (track.outer_radius[0] + track.outer_radius[1] + track.inner_radius[0] + track.inner_radius[1]) / 4.0
+    _, current_progress, _, _ = track.project_to_centerline(camera_position)
     distances = [18, 30, 46, 66, 92, 126, 170, 226, 296, 382, 486, 610, 756, 925]
     bands = []
 
     for near, far in zip(distances[:-1], distances[1:]):
-        near_angle = (current_angle - near / average_radius) % math.tau
-        far_angle = (current_angle - far / average_radius) % math.tau
-        near_outer = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, near_angle, track.outer_radius), horizon_y, focal, camera_height)
-        near_inner = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, near_angle, track.inner_radius), horizon_y, focal, camera_height)
-        far_outer = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, far_angle, track.outer_radius), horizon_y, focal, camera_height)
-        far_inner = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, far_angle, track.inner_radius), horizon_y, focal, camera_height)
+        near_progress = current_progress + near
+        far_progress = current_progress + far
+        near_outer = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, near_progress, 1.0), horizon_y, focal, camera_height)
+        near_inner = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, near_progress, -1.0), horizon_y, focal, camera_height)
+        far_outer = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, far_progress, 1.0), horizon_y, focal, camera_height)
+        far_inner = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, far_progress, -1.0), horizon_y, focal, camera_height)
         if not all([near_outer, near_inner, far_outer, far_inner]):
             continue
 
@@ -273,13 +281,7 @@ def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track, camera_sta
 
     racing_points = []
     for distance in distances:
-        angle = (current_angle - distance / average_radius) % math.tau
-        blend = 0.56 + 0.10 * math.sin(angle * 2.0 - 0.6)
-        radius = (
-            track.inner_radius[0] + (track.outer_radius[0] - track.inner_radius[0]) * blend,
-            track.inner_radius[1] + (track.outer_radius[1] - track.inner_radius[1]) * blend,
-        )
-        projected = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, angle, radius), horizon_y, focal, camera_height)
+        projected = project_cockpit_point(camera_position, camera_heading, track.point_at_progress(current_progress + distance), horizon_y, focal, camera_height)
         if projected:
             racing_points.append((projected[0], projected[1]))
     if len(racing_points) > 1:
@@ -336,7 +338,7 @@ def main() -> None:
     clock = pygame.time.Clock()
 
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     ai_driver = RuleBasedDriver(racing_line)
     car = Car()
     checkpoints = CheckpointManager()

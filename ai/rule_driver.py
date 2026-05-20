@@ -9,10 +9,10 @@ from physics.vector_utils import clamp
 
 @dataclass
 class DriverParameters:
-    lookahead_distance: float = 118.0
-    speed_lookahead_gain: float = 0.55
-    corner_speed_multiplier: float = 0.82
-    braking_safety_margin: float = 1.25
+    lookahead_distance: float = 92.0
+    speed_lookahead_gain: float = 0.38
+    corner_speed_multiplier: float = 0.70
+    braking_safety_margin: float = 1.45
     throttle_aggressiveness: float = 0.018
     brake_aggressiveness: float = 0.030
     aero_switch_speed: float = 118.0

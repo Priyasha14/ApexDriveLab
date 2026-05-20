@@ -29,7 +29,7 @@ def reconstruction_error(vae: DrivingStateVAE, observations: np.ndarray) -> np.n
 def collect_stressed_observations(samples: int, seed: int = 71) -> np.ndarray:
     rng = np.random.default_rng(seed)
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     rule_driver = RuleBasedDriver(racing_line, DriverParameters())
     car = Car()
     checkpoints = CheckpointManager()

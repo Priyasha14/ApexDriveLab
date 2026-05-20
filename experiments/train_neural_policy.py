@@ -46,7 +46,7 @@ def collect_demonstrations(
     seed: int = 19,
 ) -> tuple[np.ndarray, np.ndarray]:
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     rng = np.random.default_rng(seed)
     dt = 1.0 / FPS
     observations = []

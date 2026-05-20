@@ -34,7 +34,7 @@ def run_neural_laps(
     telemetry_path: Path | None = None,
 ) -> NeuralLapResult:
     track = Track()
-    racing_line = RacingLine(track.center, track.inner_radius, track.outer_radius)
+    racing_line = RacingLine.from_track(track)
     policy = NeuralPolicy.load(model_path)
     car = Car()
     car.apply_setup(SETUPS.get(setup_name, SETUPS["balanced"]))

@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from config import (
     CAR_NOSE_COLOR,
     FPS,
     HEIGHT,
+    KERB_RED,
+    KERB_WHITE,
     OFF_TRACK_GRIP_SCALE,
     WIDTH,
     WINDOW_TITLE,
@@ -180,19 +183,90 @@ def draw_particles(screen: pygame.Surface, particles: list[dict]) -> None:
         pygame.draw.circle(screen, color, particle["position"].astype(int), radius)
 
 
-def render_cockpit_camera(world: pygame.Surface, screen: pygame.Surface, car: Car) -> None:
-    camera_size = 1900
-    camera = pygame.Surface((camera_size, camera_size), pygame.SRCALPHA)
-    center = camera_size // 2
-    camera.fill(BACKGROUND_COLOR)
-    camera.blit(world, (center - int(car.position[0]), center - int(car.position[1])))
+def ellipse_world_point(track: Track, angle: float, radius: tuple[float, float]) -> tuple[float, float]:
+    return (
+        track.center[0] + math.cos(angle) * radius[0],
+        track.center[1] + math.sin(angle) * radius[1],
+    )
 
-    rotation_degrees = car.heading * 57.2958 + 90.0
-    rotated = pygame.transform.rotate(camera, rotation_degrees)
-    crop = pygame.Rect(0, 0, WIDTH, HEIGHT)
-    crop.center = rotated.get_rect().center
-    cockpit_view = rotated.subsurface(crop).copy()
-    screen.blit(cockpit_view, (0, 0))
+
+def project_cockpit_point(car: Car, point: tuple[float, float], horizon_y: int, focal: float, camera_height: float) -> tuple[int, int, float] | None:
+    forward = from_angle(car.heading)
+    right = from_angle(car.heading + 1.5707963267948966)
+    dx = point[0] - float(car.position[0])
+    dy = point[1] - float(car.position[1])
+    ahead = dx * float(forward[0]) + dy * float(forward[1])
+    lateral = dx * float(right[0]) + dy * float(right[1])
+    if ahead < 10.0:
+        return None
+
+    depth = ahead + 28.0
+    x = WIDTH / 2 + lateral * focal / depth
+    y = horizon_y + camera_height * focal / depth
+    return int(x), int(y), ahead
+
+
+def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track) -> None:
+    horizon_y = 238
+    focal = 455.0
+    camera_height = 86.0
+    screen.fill((10, 16, 23))
+    pygame.draw.rect(screen, (32, 52, 72), pygame.Rect(0, 0, WIDTH, horizon_y))
+    pygame.draw.rect(screen, (18, 69, 39), pygame.Rect(0, horizon_y, WIDTH, HEIGHT - horizon_y))
+
+    for stripe_x in range(-260, WIDTH + 260, 140):
+        pygame.draw.polygon(
+            screen,
+            (22, 88, 48),
+            [(stripe_x, horizon_y), (stripe_x + 56, horizon_y), (stripe_x + 360, HEIGHT), (stripe_x + 250, HEIGHT)],
+        )
+
+    current_angle = track.angle_for_position(car.position)
+    average_radius = (track.outer_radius[0] + track.outer_radius[1] + track.inner_radius[0] + track.inner_radius[1]) / 4.0
+    distances = [18, 30, 46, 66, 92, 126, 170, 226, 296, 382, 486, 610, 756, 925]
+    bands = []
+
+    for near, far in zip(distances[:-1], distances[1:]):
+        near_angle = (current_angle - near / average_radius) % math.tau
+        far_angle = (current_angle - far / average_radius) % math.tau
+        near_outer = project_cockpit_point(car, ellipse_world_point(track, near_angle, track.outer_radius), horizon_y, focal, camera_height)
+        near_inner = project_cockpit_point(car, ellipse_world_point(track, near_angle, track.inner_radius), horizon_y, focal, camera_height)
+        far_outer = project_cockpit_point(car, ellipse_world_point(track, far_angle, track.outer_radius), horizon_y, focal, camera_height)
+        far_inner = project_cockpit_point(car, ellipse_world_point(track, far_angle, track.inner_radius), horizon_y, focal, camera_height)
+        if not all([near_outer, near_inner, far_outer, far_inner]):
+            continue
+
+        near_left, near_right = sorted([near_outer, near_inner], key=lambda item: item[0])
+        far_left, far_right = sorted([far_outer, far_inner], key=lambda item: item[0])
+        bands.append((near, far, near_left, near_right, far_left, far_right))
+
+    for index, (_, _, near_left, near_right, far_left, far_right) in enumerate(reversed(bands)):
+        color = (50, 54, 57) if index % 2 == 0 else (45, 49, 52)
+        pygame.draw.polygon(screen, color, [(near_left[0], near_left[1]), (near_right[0], near_right[1]), (far_right[0], far_right[1]), (far_left[0], far_left[1])])
+        pygame.draw.line(screen, (235, 238, 240), (near_left[0], near_left[1]), (far_left[0], far_left[1]), 4)
+        pygame.draw.line(screen, (235, 238, 240), (near_right[0], near_right[1]), (far_right[0], far_right[1]), 4)
+        kerb_color = KERB_RED if index % 2 == 0 else KERB_WHITE
+        pygame.draw.line(screen, kerb_color, (near_left[0], near_left[1]), (far_left[0], far_left[1]), 8)
+        pygame.draw.line(screen, kerb_color, (near_right[0], near_right[1]), (far_right[0], far_right[1]), 8)
+
+    racing_points = []
+    for distance in distances:
+        angle = (current_angle - distance / average_radius) % math.tau
+        blend = 0.56 + 0.10 * math.sin(angle * 2.0 - 0.6)
+        radius = (
+            track.inner_radius[0] + (track.outer_radius[0] - track.inner_radius[0]) * blend,
+            track.inner_radius[1] + (track.outer_radius[1] - track.inner_radius[1]) * blend,
+        )
+        projected = project_cockpit_point(car, ellipse_world_point(track, angle, radius), horizon_y, focal, camera_height)
+        if projected:
+            racing_points.append((projected[0], projected[1]))
+    if len(racing_points) > 1:
+        pygame.draw.lines(screen, (67, 207, 126), False, racing_points, 4)
+
+    speed_haze = min(car.speed_kmh / 240.0, 1.0)
+    haze = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    pygame.draw.rect(haze, (180, 210, 230, int(20 * speed_haze)), pygame.Rect(0, horizon_y - 20, WIDTH, 100))
+    screen.blit(haze, (0, 0))
 
 
 def draw_cockpit_overlay(screen: pygame.Surface, car: Car) -> None:
@@ -320,7 +394,7 @@ def main() -> None:
             draw_debug_vectors(render_target, car)
 
         if cockpit_camera:
-            render_cockpit_camera(render_target, screen, car)
+            draw_cockpit_road(screen, car, track)
             draw_cockpit_overlay(screen, car)
         else:
             screen.blit(render_target, (0, 0))

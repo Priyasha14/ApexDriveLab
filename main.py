@@ -235,61 +235,132 @@ def project_cockpit_point(camera_position, camera_heading: float, point: tuple[f
     return int(x), int(y), ahead
 
 
+def camera_axes(camera_heading: float) -> tuple[tuple[float, float], tuple[float, float]]:
+    forward = from_angle(camera_heading)
+    right = from_angle(camera_heading + 1.5707963267948966)
+    return (float(forward[0]), float(forward[1])), (float(right[0]), float(right[1]))
+
+
+def project_world_3d(camera_position, camera_heading: float, point: tuple[float, float, float], focal: float = 720.0, camera_height: float = 34.0) -> tuple[int, int, float] | None:
+    forward, right = camera_axes(camera_heading)
+    dx = point[0] - float(camera_position[0])
+    dz = point[2] - float(camera_position[1])
+    lateral = dx * right[0] + dz * right[1]
+    depth = dx * forward[0] + dz * forward[1]
+    vertical = point[1] - camera_height
+    if depth < 8.0:
+        return None
+    x = WIDTH / 2 + lateral * focal / depth
+    y = HEIGHT * 0.50 - vertical * focal / depth
+    return int(x), int(y), depth
+
+
+def add_3d_polygon(polygons: list[tuple[float, list[tuple[int, int]], tuple[int, int, int]]], camera_position, camera_heading: float, points: list[tuple[float, float, float]], color: tuple[int, int, int]) -> None:
+    projected = [project_world_3d(camera_position, camera_heading, point) for point in points]
+    if any(point is None for point in projected):
+        return
+    screen_points = [(point[0], point[1]) for point in projected if point is not None]
+    depth = sum(point[2] for point in projected if point is not None) / len(projected)
+    polygons.append((depth, screen_points, color))
+
+
+def add_3d_wall(polygons: list[tuple[float, list[tuple[int, int]], tuple[int, int, int]]], camera_position, camera_heading: float, a: tuple[float, float], b: tuple[float, float], height: float, color: tuple[int, int, int]) -> None:
+    add_3d_polygon(
+        polygons,
+        camera_position,
+        camera_heading,
+        [(a[0], 0.0, a[1]), (b[0], 0.0, b[1]), (b[0], height, b[1]), (a[0], height, a[1])],
+        color,
+    )
+
+
+def add_building(polygons: list[tuple[float, list[tuple[int, int]], tuple[int, int, int]]], camera_position, camera_heading: float, rect: pygame.Rect, height: float, color: tuple[int, int, int]) -> None:
+    x0, z0, x1, z1 = rect.left, rect.top, rect.right, rect.bottom
+    top_color = tuple(min(255, channel + 24) for channel in color)
+    side_color = tuple(max(0, channel - 28) for channel in color)
+    add_3d_polygon(polygons, camera_position, camera_heading, [(x0, height, z0), (x1, height, z0), (x1, height, z1), (x0, height, z1)], top_color)
+    add_3d_wall(polygons, camera_position, camera_heading, (x0, z0), (x1, z0), height, color)
+    add_3d_wall(polygons, camera_position, camera_heading, (x1, z0), (x1, z1), height, side_color)
+    add_3d_wall(polygons, camera_position, camera_heading, (x1, z1), (x0, z1), height, color)
+    add_3d_wall(polygons, camera_position, camera_heading, (x0, z1), (x0, z0), height, side_color)
+
+
+def monaco_buildings() -> list[tuple[pygame.Rect, float, tuple[int, int, int]]]:
+    return [
+        (pygame.Rect(350, 154, 118, 96), 82.0, (135, 123, 106)),
+        (pygame.Rect(495, 118, 126, 92), 108.0, (164, 150, 126)),
+        (pygame.Rect(642, 112, 108, 74), 74.0, (120, 112, 106)),
+        (pygame.Rect(780, 128, 150, 94), 96.0, (150, 136, 114)),
+        (pygame.Rect(964, 150, 130, 90), 70.0, (112, 121, 130)),
+        (pygame.Rect(342, 430, 136, 88), 76.0, (144, 128, 105)),
+        (pygame.Rect(520, 456, 108, 74), 58.0, (112, 116, 118)),
+        (pygame.Rect(664, 440, 150, 88), 64.0, (96, 105, 116)),
+        (pygame.Rect(858, 422, 132, 92), 72.0, (146, 129, 103)),
+        (pygame.Rect(1010, 430, 118, 92), 80.0, (120, 118, 112)),
+    ]
+
+
 def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track, camera_state: dict) -> None:
-    horizon_y = 238
-    focal = 455.0
-    camera_height = 86.0
     camera_position = camera_state["position"]
     camera_heading = camera_state["heading"]
-    screen.fill((10, 16, 23))
-    pygame.draw.rect(screen, (32, 52, 72), pygame.Rect(0, 0, WIDTH, horizon_y))
-    pygame.draw.rect(screen, (18, 69, 39), pygame.Rect(0, horizon_y, WIDTH, HEIGHT - horizon_y))
-
-    for stripe_x in range(-260, WIDTH + 260, 140):
-        pygame.draw.polygon(
-            screen,
-            (22, 88, 48),
-            [(stripe_x, horizon_y), (stripe_x + 56, horizon_y), (stripe_x + 360, HEIGHT), (stripe_x + 250, HEIGHT)],
-        )
+    screen.fill((97, 145, 178))
+    pygame.draw.rect(screen, (18, 95, 64), pygame.Rect(0, HEIGHT // 2, WIDTH, HEIGHT // 2))
 
     _, current_progress, _, _ = track.project_to_centerline(camera_position)
-    distances = [18, 30, 46, 66, 92, 126, 170, 226, 296, 382, 486, 610, 756, 925]
-    bands = []
+    polygons: list[tuple[float, list[tuple[int, int]], tuple[int, int, int]]] = []
 
-    for near, far in zip(distances[:-1], distances[1:]):
-        near_progress = current_progress + near
-        far_progress = current_progress + far
-        near_outer = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, near_progress, 1.0), horizon_y, focal, camera_height)
-        near_inner = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, near_progress, -1.0), horizon_y, focal, camera_height)
-        far_outer = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, far_progress, 1.0), horizon_y, focal, camera_height)
-        far_inner = project_cockpit_point(camera_position, camera_heading, track_edge_point(track, far_progress, -1.0), horizon_y, focal, camera_height)
-        if not all([near_outer, near_inner, far_outer, far_inner]):
-            continue
+    add_3d_polygon(polygons, camera_position, camera_heading, [(-220, -1, -180), (1500, -1, -180), (1500, -1, 790), (-220, -1, 790)], (24, 88, 54))
+    add_3d_polygon(polygons, camera_position, camera_heading, [(760, -0.6, 500), (1280, -0.6, 500), (1280, -0.6, 720), (760, -0.6, 720)], (22, 88, 124))
 
-        near_left, near_right = sorted([near_outer, near_inner], key=lambda item: item[0])
-        far_left, far_right = sorted([far_outer, far_inner], key=lambda item: item[0])
-        bands.append((near, far, near_left, near_right, far_left, far_right))
+    for rect, height, color in monaco_buildings():
+        add_building(polygons, camera_position, camera_heading, rect, height, color)
 
-    for index, (_, _, near_left, near_right, far_left, far_right) in enumerate(reversed(bands)):
-        color = (50, 54, 57) if index % 2 == 0 else (45, 49, 52)
-        pygame.draw.polygon(screen, color, [(near_left[0], near_left[1]), (near_right[0], near_right[1]), (far_right[0], far_right[1]), (far_left[0], far_left[1])])
-        pygame.draw.line(screen, (235, 238, 240), (near_left[0], near_left[1]), (far_left[0], far_left[1]), 4)
-        pygame.draw.line(screen, (235, 238, 240), (near_right[0], near_right[1]), (far_right[0], far_right[1]), 4)
+    sample_count = 84
+    step = 16.0
+    for index in range(sample_count):
+        near = current_progress + index * step
+        far = current_progress + (index + 1) * step
+        left_near = track_edge_point(track, near, -1.0)
+        right_near = track_edge_point(track, near, 1.0)
+        left_far = track_edge_point(track, far, -1.0)
+        right_far = track_edge_point(track, far, 1.0)
+        road_color = (48, 51, 54) if index % 2 else (43, 46, 49)
+        add_3d_polygon(
+            polygons,
+            camera_position,
+            camera_heading,
+            [(left_near[0], 0.0, left_near[1]), (right_near[0], 0.0, right_near[1]), (right_far[0], 0.0, right_far[1]), (left_far[0], 0.0, left_far[1])],
+            road_color,
+        )
         kerb_color = KERB_RED if index % 2 == 0 else KERB_WHITE
-        pygame.draw.line(screen, kerb_color, (near_left[0], near_left[1]), (far_left[0], far_left[1]), 8)
-        pygame.draw.line(screen, kerb_color, (near_right[0], near_right[1]), (far_right[0], far_right[1]), 8)
+        for side, near_edge, far_edge in [(-1.0, left_near, left_far), (1.0, right_near, right_far)]:
+            inner_near = track_edge_point(track, near, side * 0.86)
+            inner_far = track_edge_point(track, far, side * 0.86)
+            add_3d_polygon(
+                polygons,
+                camera_position,
+                camera_heading,
+                [(inner_near[0], 0.8, inner_near[1]), (near_edge[0], 0.8, near_edge[1]), (far_edge[0], 0.8, far_edge[1]), (inner_far[0], 0.8, inner_far[1])],
+                kerb_color,
+            )
+            add_3d_wall(polygons, camera_position, camera_heading, near_edge, far_edge, 23.0, (220, 224, 226))
+            outer_near = track_edge_point(track, near, side * 1.18)
+            outer_far = track_edge_point(track, far, side * 1.18)
+            add_3d_wall(polygons, camera_position, camera_heading, outer_near, outer_far, 36.0, (62, 70, 76))
 
-    racing_points = []
-    for distance in distances:
-        projected = project_cockpit_point(camera_position, camera_heading, track.point_at_progress(current_progress + distance), horizon_y, focal, camera_height)
+    for depth, points, color in sorted(polygons, key=lambda item: item[0], reverse=True):
+        pygame.draw.polygon(screen, color, points)
+
+    for progress_offset in range(30, 420, 55):
+        center = track.point_at_progress(current_progress + progress_offset)
+        projected = project_world_3d(camera_position, camera_heading, (center[0], 1.2, center[1]))
         if projected:
-            racing_points.append((projected[0], projected[1]))
-    if len(racing_points) > 1:
-        pygame.draw.lines(screen, (67, 207, 126), False, racing_points, 4)
+            size = max(2, int(900 / max(projected[2], 1)))
+            pygame.draw.circle(screen, (67, 207, 126), (projected[0], projected[1]), min(size, 7))
 
     speed_haze = min(car.speed_kmh / 240.0, 1.0)
     haze = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    pygame.draw.rect(haze, (180, 210, 230, int(20 * speed_haze)), pygame.Rect(0, horizon_y - 20, WIDTH, 100))
+    pygame.draw.rect(haze, (210, 230, 240, int(16 * speed_haze)), pygame.Rect(0, HEIGHT // 2 - 70, WIDTH, 120))
     screen.blit(haze, (0, 0))
 
 

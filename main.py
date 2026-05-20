@@ -190,11 +190,31 @@ def ellipse_world_point(track: Track, angle: float, radius: tuple[float, float])
     )
 
 
-def project_cockpit_point(car: Car, point: tuple[float, float], horizon_y: int, focal: float, camera_height: float) -> tuple[int, int, float] | None:
-    forward = from_angle(car.heading)
-    right = from_angle(car.heading + 1.5707963267948966)
-    dx = point[0] - float(car.position[0])
-    dy = point[1] - float(car.position[1])
+def wrap_angle_delta(angle: float) -> float:
+    while angle > math.pi:
+        angle -= math.tau
+    while angle < -math.pi:
+        angle += math.tau
+    return angle
+
+
+def update_cockpit_camera(camera_state: dict, car: Car, dt: float, snap: bool = False) -> None:
+    if snap:
+        camera_state["position"] = car.position.copy()
+        camera_state["heading"] = car.heading
+        return
+
+    position_response = min(1.0, dt * 4.5)
+    heading_response = min(1.0, dt * 3.2)
+    camera_state["position"] += (car.position - camera_state["position"]) * position_response
+    camera_state["heading"] += wrap_angle_delta(car.heading - camera_state["heading"]) * heading_response
+
+
+def project_cockpit_point(camera_position, camera_heading: float, point: tuple[float, float], horizon_y: int, focal: float, camera_height: float) -> tuple[int, int, float] | None:
+    forward = from_angle(camera_heading)
+    right = from_angle(camera_heading + 1.5707963267948966)
+    dx = point[0] - float(camera_position[0])
+    dy = point[1] - float(camera_position[1])
     ahead = dx * float(forward[0]) + dy * float(forward[1])
     lateral = dx * float(right[0]) + dy * float(right[1])
     if ahead < 10.0:
@@ -206,10 +226,12 @@ def project_cockpit_point(car: Car, point: tuple[float, float], horizon_y: int, 
     return int(x), int(y), ahead
 
 
-def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track) -> None:
+def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track, camera_state: dict) -> None:
     horizon_y = 238
     focal = 455.0
     camera_height = 86.0
+    camera_position = camera_state["position"]
+    camera_heading = camera_state["heading"]
     screen.fill((10, 16, 23))
     pygame.draw.rect(screen, (32, 52, 72), pygame.Rect(0, 0, WIDTH, horizon_y))
     pygame.draw.rect(screen, (18, 69, 39), pygame.Rect(0, horizon_y, WIDTH, HEIGHT - horizon_y))
@@ -221,7 +243,7 @@ def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track) -> None:
             [(stripe_x, horizon_y), (stripe_x + 56, horizon_y), (stripe_x + 360, HEIGHT), (stripe_x + 250, HEIGHT)],
         )
 
-    current_angle = track.angle_for_position(car.position)
+    current_angle = track.angle_for_position(camera_position)
     average_radius = (track.outer_radius[0] + track.outer_radius[1] + track.inner_radius[0] + track.inner_radius[1]) / 4.0
     distances = [18, 30, 46, 66, 92, 126, 170, 226, 296, 382, 486, 610, 756, 925]
     bands = []
@@ -229,10 +251,10 @@ def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track) -> None:
     for near, far in zip(distances[:-1], distances[1:]):
         near_angle = (current_angle - near / average_radius) % math.tau
         far_angle = (current_angle - far / average_radius) % math.tau
-        near_outer = project_cockpit_point(car, ellipse_world_point(track, near_angle, track.outer_radius), horizon_y, focal, camera_height)
-        near_inner = project_cockpit_point(car, ellipse_world_point(track, near_angle, track.inner_radius), horizon_y, focal, camera_height)
-        far_outer = project_cockpit_point(car, ellipse_world_point(track, far_angle, track.outer_radius), horizon_y, focal, camera_height)
-        far_inner = project_cockpit_point(car, ellipse_world_point(track, far_angle, track.inner_radius), horizon_y, focal, camera_height)
+        near_outer = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, near_angle, track.outer_radius), horizon_y, focal, camera_height)
+        near_inner = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, near_angle, track.inner_radius), horizon_y, focal, camera_height)
+        far_outer = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, far_angle, track.outer_radius), horizon_y, focal, camera_height)
+        far_inner = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, far_angle, track.inner_radius), horizon_y, focal, camera_height)
         if not all([near_outer, near_inner, far_outer, far_inner]):
             continue
 
@@ -257,7 +279,7 @@ def draw_cockpit_road(screen: pygame.Surface, car: Car, track: Track) -> None:
             track.inner_radius[0] + (track.outer_radius[0] - track.inner_radius[0]) * blend,
             track.inner_radius[1] + (track.outer_radius[1] - track.inner_radius[1]) * blend,
         )
-        projected = project_cockpit_point(car, ellipse_world_point(track, angle, radius), horizon_y, focal, camera_height)
+        projected = project_cockpit_point(camera_position, camera_heading, ellipse_world_point(track, angle, radius), horizon_y, focal, camera_height)
         if projected:
             racing_points.append((projected[0], projected[1]))
     if len(racing_points) > 1:
@@ -329,6 +351,7 @@ def main() -> None:
     aero_override: str | None = None
     ai_enabled = False
     cockpit_camera = False
+    cockpit_camera_state = {"position": car.position.copy(), "heading": car.heading}
     while running:
         dt = clock.tick(FPS) / 1000.0
 
@@ -343,6 +366,7 @@ def main() -> None:
                     telemetry.clear()
                     sim_time = 0.0
                     car.reset()
+                    update_cockpit_camera(cockpit_camera_state, car, dt, snap=True)
                     checkpoints.reset(track.checkpoint_index_for_position(car.position))
                 elif event.key == pygame.K_F1:
                     debug_enabled = not debug_enabled
@@ -383,6 +407,7 @@ def main() -> None:
         telemetry.log(sim_time, car, on_track, ai_driver.state if ai_enabled else None, track)
         spawn_particles(particles, car, on_track)
         update_particles(particles, dt)
+        update_cockpit_camera(cockpit_camera_state, car, dt)
 
         render_target = pygame.Surface((WIDTH, HEIGHT))
         render_target.fill(BACKGROUND_COLOR)
@@ -394,7 +419,7 @@ def main() -> None:
             draw_debug_vectors(render_target, car)
 
         if cockpit_camera:
-            draw_cockpit_road(screen, car, track)
+            draw_cockpit_road(screen, car, track, cockpit_camera_state)
             draw_cockpit_overlay(screen, car)
         else:
             screen.blit(render_target, (0, 0))

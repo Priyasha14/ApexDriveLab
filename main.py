@@ -38,32 +38,96 @@ def read_inputs(aero_override: str | None) -> CarInputs:
 
 
 def draw_car(screen: pygame.Surface, car: Car) -> None:
-    polygon = car.body_polygon()
-    shadow = [(x + 5, y + 6) for x, y in polygon]
-    pygame.draw.polygon(screen, (7, 9, 12), shadow)
-    pygame.draw.polygon(screen, CAR_COLOR, polygon)
-    pygame.draw.polygon(screen, (18, 20, 24), polygon, 2)
-    pygame.draw.circle(screen, CAR_NOSE_COLOR, polygon[0], 4)
+    draw_car_shadow(screen, car)
     draw_wheels(screen, car)
+    draw_f1_body(screen, car)
+
+
+def car_point(car: Car, forward, right, x: float, y: float) -> tuple[int, int]:
+    point = car.position + forward * x + right * y
+    return int(point[0]), int(point[1])
+
+
+def draw_oriented_polygon(screen: pygame.Surface, car: Car, points: list[tuple[float, float]], color: tuple[int, int, int], outline: tuple[int, int, int] | None = None, width: int = 1) -> None:
+    forward = from_angle(car.heading)
+    right = from_angle(car.heading + 1.5707963267948966)
+    polygon = [car_point(car, forward, right, x, y) for x, y in points]
+    pygame.draw.polygon(screen, color, polygon)
+    if outline is not None:
+        pygame.draw.polygon(screen, outline, polygon, width)
+
+
+def draw_rotated_rect(screen: pygame.Surface, center: tuple[int, int], size: tuple[int, int], angle: float, color: tuple[int, int, int], border_radius: int = 2, outline: tuple[int, int, int] | None = None) -> None:
+    surface = pygame.Surface(size, pygame.SRCALPHA)
+    pygame.draw.rect(surface, color, surface.get_rect(), border_radius=border_radius)
+    if outline is not None:
+        pygame.draw.rect(surface, outline, surface.get_rect(), 1, border_radius=border_radius)
+    rotated = pygame.transform.rotate(surface, -angle * 57.2958)
+    screen.blit(rotated, rotated.get_rect(center=center))
+
+
+def draw_car_shadow(screen: pygame.Surface, car: Car) -> None:
+    forward = from_angle(car.heading)
+    right = from_angle(car.heading + 1.5707963267948966)
+    shadow_points = [
+        car_point(car, forward, right, 28, 0),
+        car_point(car, forward, right, 16, 18),
+        car_point(car, forward, right, -27, 18),
+        car_point(car, forward, right, -32, 13),
+        car_point(car, forward, right, -32, -13),
+        car_point(car, forward, right, -27, -18),
+        car_point(car, forward, right, 16, -18),
+    ]
+    shadow = [(x + 5, y + 7) for x, y in shadow_points]
+    pygame.draw.polygon(screen, (6, 8, 10), shadow)
+
+
+def draw_f1_body(screen: pygame.Surface, car: Car) -> None:
+    dark = (14, 16, 20)
+    carbon = (24, 27, 31)
+    highlight = (255, 232, 132)
+    sidepod = (178, 21, 38)
+    halo = (33, 36, 40)
+
+    draw_oriented_polygon(screen, car, [(-9, -9), (12, -7), (24, -2), (27, 0), (24, 2), (12, 7), (-9, 9), (-17, 5), (-17, -5)], CAR_COLOR, dark, 2)
+    draw_oriented_polygon(screen, car, [(3, -4), (29, -2), (34, 0), (29, 2), (3, 4), (-2, 0)], CAR_NOSE_COLOR, dark, 1)
+    draw_oriented_polygon(screen, car, [(-5, -16), (9, -15), (13, -7), (-10, -8), (-18, -13)], sidepod, dark, 1)
+    draw_oriented_polygon(screen, car, [(-5, 16), (9, 15), (13, 7), (-10, 8), (-18, 13)], sidepod, dark, 1)
+    draw_oriented_polygon(screen, car, [(-31, -17), (-22, -15), (-20, 15), (-31, 17), (-35, 12), (-35, -12)], carbon, dark, 1)
+    draw_oriented_polygon(screen, car, [(20, -20), (31, -19), (33, 19), (20, 20), (18, 14), (18, -14)], carbon, dark, 1)
+    draw_oriented_polygon(screen, car, [(-7, -4), (5, -4), (9, 0), (5, 4), (-7, 4), (-10, 0)], (22, 25, 29), (5, 7, 9), 1)
+
+    forward = from_angle(car.heading)
+    right = from_angle(car.heading + 1.5707963267948966)
+    cockpit = car_point(car, forward, right, -3, 0)
+    pygame.draw.circle(screen, (8, 10, 12), cockpit, 6)
+    pygame.draw.circle(screen, (74, 92, 104), cockpit, 3)
+    for side in (-1, 1):
+        start = car_point(car, forward, right, -8, side * 7)
+        end = car_point(car, forward, right, 6, side * 3)
+        pygame.draw.line(screen, halo, start, end, 3)
+
+    centerline_a = car_point(car, forward, right, -26, 0)
+    centerline_b = car_point(car, forward, right, 30, 0)
+    pygame.draw.line(screen, highlight, centerline_a, centerline_b, 2)
+    pygame.draw.circle(screen, highlight, car_point(car, forward, right, 34, 0), 3)
 
 
 def draw_wheels(screen: pygame.Surface, car: Car) -> None:
     forward = from_angle(car.heading)
     right = from_angle(car.heading + 1.5707963267948966)
     wheel_offsets = [
-        forward * 13 + right * 11,
-        forward * 13 - right * 11,
-        -forward * 14 + right * 11,
-        -forward * 14 - right * 11,
+        (forward * 15 + right * 14, car.heading + car.steering_angle),
+        (forward * 15 - right * 14, car.heading + car.steering_angle),
+        (-forward * 17 + right * 14, car.heading),
+        (-forward * 17 - right * 14, car.heading),
     ]
-    for offset in wheel_offsets:
+    for offset, angle in wheel_offsets:
         center = car.position + offset
-        rect = pygame.Rect(0, 0, 6, 13)
-        rect.center = (int(center[0]), int(center[1]))
-        wheel_surface = pygame.Surface((6, 13), pygame.SRCALPHA)
-        pygame.draw.rect(wheel_surface, (8, 10, 12), wheel_surface.get_rect(), border_radius=2)
-        rotated = pygame.transform.rotate(wheel_surface, -car.heading * 57.2958)
-        screen.blit(rotated, rotated.get_rect(center=rect.center))
+        wheel_center = (int(center[0]), int(center[1]))
+        draw_rotated_rect(screen, wheel_center, (8, 16), angle, (7, 8, 10), 3, (35, 38, 42))
+        rim = center - forward * 1
+        pygame.draw.circle(screen, (58, 62, 66), (int(rim[0]), int(rim[1])), 2)
 
 
 def draw_debug_vectors(screen: pygame.Surface, car: Car) -> None:

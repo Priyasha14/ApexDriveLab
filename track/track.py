@@ -23,6 +23,19 @@ from config import (
 )
 
 
+def monaco_buildings() -> list[tuple[pygame.Rect, float, tuple[int, int, int]]]:
+    return [
+        (pygame.Rect(356, 178, 130, 82), 82.0, (102, 91, 82)),
+        (pygame.Rect(520, 152, 112, 74), 108.0, (132, 123, 108)),
+        (pygame.Rect(742, 132, 126, 86), 74.0, (116, 103, 96)),
+        (pygame.Rect(895, 158, 120, 92), 96.0, (150, 137, 116)),
+        (pygame.Rect(1038, 126, 112, 90), 70.0, (115, 122, 130)),
+        (pygame.Rect(354, 444, 116, 70), 76.0, (126, 111, 95)),
+        (pygame.Rect(700, 456, 150, 74), 64.0, (96, 103, 112)),
+        (pygame.Rect(870, 442, 116, 82), 72.0, (136, 124, 107)),
+    ]
+
+
 class Track:
     def __init__(self) -> None:
         self.center = TRACK_CENTER
@@ -146,16 +159,7 @@ class Track:
         pygame.draw.rect(screen, (28, 79, 49), pygame.Rect(0, 520, WIDTH, 200))
         pygame.draw.rect(screen, (31, 94, 56), pygame.Rect(0, 0, 270, 720))
         pygame.draw.rect(screen, (35, 111, 68), pygame.Rect(0, 0, 1280, 96))
-        for rect, color in [
-            (pygame.Rect(356, 178, 130, 82), (102, 91, 82)),
-            (pygame.Rect(520, 152, 112, 74), (132, 123, 108)),
-            (pygame.Rect(742, 132, 126, 86), (116, 103, 96)),
-            (pygame.Rect(895, 158, 120, 92), (150, 137, 116)),
-            (pygame.Rect(1038, 126, 112, 90), (115, 122, 130)),
-            (pygame.Rect(354, 444, 116, 70), (126, 111, 95)),
-            (pygame.Rect(700, 456, 150, 74), (96, 103, 112)),
-            (pygame.Rect(870, 442, 116, 82), (136, 124, 107)),
-        ]:
+        for rect, _, color in monaco_buildings():
             pygame.draw.rect(screen, color, rect, border_radius=3)
             pygame.draw.rect(screen, (48, 52, 56), rect, 2, border_radius=3)
         for x in range(12, WIDTH, 58):

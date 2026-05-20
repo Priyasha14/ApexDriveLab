@@ -180,6 +180,54 @@ def draw_particles(screen: pygame.Surface, particles: list[dict]) -> None:
         pygame.draw.circle(screen, color, particle["position"].astype(int), radius)
 
 
+def render_cockpit_camera(world: pygame.Surface, screen: pygame.Surface, car: Car) -> None:
+    camera_size = 1900
+    camera = pygame.Surface((camera_size, camera_size), pygame.SRCALPHA)
+    center = camera_size // 2
+    camera.fill(BACKGROUND_COLOR)
+    camera.blit(world, (center - int(car.position[0]), center - int(car.position[1])))
+
+    rotation_degrees = car.heading * 57.2958 + 90.0
+    rotated = pygame.transform.rotate(camera, rotation_degrees)
+    crop = pygame.Rect(0, 0, WIDTH, HEIGHT)
+    crop.center = rotated.get_rect().center
+    cockpit_view = rotated.subsurface(crop).copy()
+    screen.blit(cockpit_view, (0, 0))
+
+
+def draw_cockpit_overlay(screen: pygame.Surface, car: Car) -> None:
+    width = screen.get_width()
+    height = screen.get_height()
+    base_y = height - 126
+    center_x = width // 2
+
+    pygame.draw.polygon(screen, (8, 10, 12), [(0, height), (width, height), (width, height - 58), (center_x + 250, base_y), (center_x - 250, base_y), (0, height - 58)])
+    pygame.draw.polygon(screen, (22, 25, 29), [(center_x - 310, height), (center_x + 310, height), (center_x + 180, base_y), (center_x - 180, base_y)])
+    pygame.draw.polygon(screen, (120, 14, 28), [(center_x - 235, height), (center_x + 235, height), (center_x + 118, base_y + 18), (center_x - 118, base_y + 18)])
+    pygame.draw.polygon(screen, (228, 36, 54), [(center_x - 84, height), (center_x + 84, height), (center_x + 44, base_y + 6), (center_x - 44, base_y + 6)])
+    pygame.draw.line(screen, CAR_NOSE_COLOR, (center_x, base_y + 8), (center_x, height), 4)
+
+    wheel_radius = 58
+    wheel_center = (center_x, height - 58)
+    pygame.draw.circle(screen, (6, 7, 9), wheel_center, wheel_radius)
+    pygame.draw.circle(screen, (32, 36, 40), wheel_center, wheel_radius, 12)
+    marker_angle = car.inputs.steer * 1.15 - 1.5707963267948966
+    marker_end = (
+        int(wheel_center[0] + 44 * pygame.math.Vector2(1, 0).rotate_rad(marker_angle).x),
+        int(wheel_center[1] + 44 * pygame.math.Vector2(1, 0).rotate_rad(marker_angle).y),
+    )
+    pygame.draw.line(screen, (72, 182, 255), wheel_center, marker_end, 5)
+    pygame.draw.circle(screen, (12, 15, 18), wheel_center, 18)
+
+    for side in (-1, 1):
+        anchor = (center_x + side * 205, height)
+        top = (center_x + side * 72, base_y - 86)
+        pygame.draw.line(screen, (18, 21, 25), anchor, top, 13)
+        pygame.draw.line(screen, (57, 62, 68), anchor, top, 3)
+    pygame.draw.arc(screen, (18, 21, 25), pygame.Rect(center_x - 118, base_y - 120, 236, 116), 3.45, 5.98, 12)
+    pygame.draw.arc(screen, (73, 78, 84), pygame.Rect(center_x - 118, base_y - 120, 236, 116), 3.45, 5.98, 3)
+
+
 def telemetry_path() -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return Path("runs") / f"telemetry_{timestamp}.csv"
@@ -206,6 +254,7 @@ def main() -> None:
     debug_enabled = False
     aero_override: str | None = None
     ai_enabled = False
+    cockpit_camera = False
     while running:
         dt = clock.tick(FPS) / 1000.0
 
@@ -223,6 +272,8 @@ def main() -> None:
                     checkpoints.reset(track.checkpoint_index_for_position(car.position))
                 elif event.key == pygame.K_F1:
                     debug_enabled = not debug_enabled
+                elif event.key == pygame.K_v:
+                    cockpit_camera = not cockpit_camera
                 elif event.key == pygame.K_p:
                     ai_enabled = not ai_enabled
                 elif event.key == pygame.K_t:
@@ -259,12 +310,20 @@ def main() -> None:
         spawn_particles(particles, car, on_track)
         update_particles(particles, dt)
 
-        screen.fill(BACKGROUND_COLOR)
-        track.draw(screen)
-        draw_particles(screen, particles)
-        draw_car(screen, car)
+        render_target = pygame.Surface((WIDTH, HEIGHT))
+        render_target.fill(BACKGROUND_COLOR)
+        track.draw(render_target)
+        draw_particles(render_target, particles)
+        if not cockpit_camera:
+            draw_car(render_target, car)
         if debug_enabled:
-            draw_debug_vectors(screen, car)
+            draw_debug_vectors(render_target, car)
+
+        if cockpit_camera:
+            render_cockpit_camera(render_target, screen, car)
+            draw_cockpit_overlay(screen, car)
+        else:
+            screen.blit(render_target, (0, 0))
         hud.draw(screen, car, checkpoints.state, on_track, debug_enabled, ai_enabled, ai_driver.state)
         pygame.display.flip()
 

@@ -44,7 +44,7 @@ class HUD:
         self._draw_input_meter(screen, car, pygame.Rect(950, 118, 300, 116))
         if ai_enabled and ai_state:
             self._draw_ai_meter(screen, ai_state, pygame.Rect(950, 246, 300, 96))
-        help_text = "Controls: W/S/A/D drive | P AI | 1-7 setup | Space deploy | Z/X/C aero | T data | F1 | R | Esc"
+        help_text = "Controls: W/S/A/D drive | V cockpit | P AI | 1-7 setup | Space deploy | Z/X/C aero | T data | F1 | R | Esc"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
         help_rect = surface.get_rect(center=(screen.get_width() // 2, screen.get_height() - 24))
         pygame.draw.rect(screen, HUD_PANEL_COLOR, help_rect.inflate(24, 12), border_radius=7)

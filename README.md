@@ -11,6 +11,12 @@ python -m venv .venv
 .\.venv\Scripts\python.exe .\main.py
 ```
 
+Run the real 3D visual simulator:
+
+```powershell
+.\.venv\Scripts\python.exe .\visual_3d.py
+```
+
 ## Test
 
 ```powershell

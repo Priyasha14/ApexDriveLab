@@ -13,6 +13,13 @@ from track.track import Track, monaco_buildings
 
 
 WORLD_SCALE = 31.0
+TRACK: Track | None = None
+RACING_LINE: RacingLine | None = None
+AI_DRIVER: RuleBasedDriver | None = None
+CAR: Car | None = None
+CAR_VISUAL = None
+CHECKPOINTS: CheckpointManager | None = None
+STATE = {"ai": False, "cockpit": False, "aero": None}
 
 
 def to_world(point) -> Vec3:
@@ -102,65 +109,76 @@ def read_ursina_inputs(aero_override: str | None) -> CarInputs:
     return CarInputs(throttle=throttle, brake=brake, steer=steer, deploy_hybrid=deploy, aero_mode=aero_override)
 
 
+def input(key):
+    assert CAR is not None and CHECKPOINTS is not None and TRACK is not None
+    if key == "p":
+        STATE["ai"] = not STATE["ai"]
+    elif key == "v":
+        STATE["cockpit"] = not STATE["cockpit"]
+    elif key == "r":
+        CAR.reset()
+        CHECKPOINTS.reset(TRACK.checkpoint_index_for_position(CAR.position))
+    elif key in {"1", "2", "3", "4", "5", "6", "7"}:
+        setup_names = ["balanced", "stable", "rotation", "high_downforce", "low_drag", "front_aero", "rear_aero"]
+        CAR.apply_setup(SETUPS[setup_names[int(key) - 1]])
+    elif key == "z":
+        STATE["aero"] = None
+    elif key == "x":
+        STATE["aero"] = "corner"
+    elif key == "c":
+        STATE["aero"] = "straight"
+
+
+def update_camera() -> None:
+    assert CAR is not None and CAR_VISUAL is not None
+    forward = Vec3(math.cos(CAR.heading), 0, math.sin(CAR.heading))
+    car_world = to_world(CAR.position)
+    if STATE["cockpit"]:
+        camera.position = car_world + Vec3(0, 0.95, 0) + forward * 0.32
+        camera.rotation = (6, heading_to_yaw(CAR.heading), 0)
+        CAR_VISUAL.root.enabled = False
+    else:
+        camera.position = car_world + Vec3(0, 9.0, 0) - forward * 9.5
+        camera.look_at(car_world + Vec3(0, 0.25, 0) + forward * 3.0)
+        CAR_VISUAL.root.enabled = True
+
+
+def update():
+    assert TRACK is not None and AI_DRIVER is not None and CAR is not None and CAR_VISUAL is not None and CHECKPOINTS is not None
+    dt = min(time.dt, 1 / 30)
+    controls = AI_DRIVER.control(CAR, TRACK) if STATE["ai"] else read_ursina_inputs(STATE["aero"])
+    on_track = TRACK.is_on_track(CAR.position)
+    CAR.update(dt, controls, 1.0 if on_track else OFF_TRACK_GRIP_SCALE)
+    CHECKPOINTS.update(dt, TRACK.checkpoint_index_for_position(CAR.position))
+    CAR_VISUAL.update(CAR)
+    update_camera()
+    STATUS.text = (
+        f"Speed {CAR.speed_kmh:5.1f} km/h\n"
+        f"Lap {CHECKPOINTS.state.lap_count}  CP {CHECKPOINTS.state.current_checkpoint + 1}/8\n"
+        f"{'AI' if STATE['ai'] else 'Manual'} | {'Cockpit' if STATE['cockpit'] else 'Chase'} | {'ON' if on_track else 'OFF TRACK'}\n"
+        "WASD drive | V cockpit | P AI | R reset"
+    )
+
+
 def main() -> None:
+    global TRACK, RACING_LINE, AI_DRIVER, CAR, CAR_VISUAL, CHECKPOINTS, STATUS
     app = Ursina(borderless=False)
     window.title = "ApexDriveLab 3D"
     window.color = color.rgb(96, 150, 190)
-    track = Track()
-    racing_line = RacingLine.from_track(track)
-    ai_driver = RuleBasedDriver(racing_line)
-    car = Car()
-    car_visual = F1Car3D()
-    checkpoints = CheckpointManager()
-    checkpoints.reset(track.checkpoint_index_for_position(car.position))
-    create_track_scene(track)
+    window.size = (1280, 720)
+    TRACK = Track()
+    RACING_LINE = RacingLine.from_track(TRACK)
+    AI_DRIVER = RuleBasedDriver(RACING_LINE)
+    CAR = Car()
+    CAR_VISUAL = F1Car3D()
+    CHECKPOINTS = CheckpointManager()
+    CHECKPOINTS.reset(TRACK.checkpoint_index_for_position(CAR.position))
+    create_track_scene(TRACK)
     DirectionalLight(rotation=(45, -35, 35), shadows=True)
     AmbientLight(color=color.rgba(120, 130, 140, 0.45))
-    status = Text(text="", origin=(-0.5, 0.5), position=(-0.86, 0.46), scale=0.9, background=True)
-    state = {"ai": False, "cockpit": False, "aero": None}
-
-    def input(key):
-        if key == "p":
-            state["ai"] = not state["ai"]
-        elif key == "v":
-            state["cockpit"] = not state["cockpit"]
-        elif key == "r":
-            car.reset()
-            checkpoints.reset(track.checkpoint_index_for_position(car.position))
-        elif key in {"1", "2", "3", "4", "5", "6", "7"}:
-            setup_names = ["balanced", "stable", "rotation", "high_downforce", "low_drag", "front_aero", "rear_aero"]
-            car.apply_setup(SETUPS[setup_names[int(key) - 1]])
-        elif key == "z":
-            state["aero"] = None
-        elif key == "x":
-            state["aero"] = "corner"
-        elif key == "c":
-            state["aero"] = "straight"
-
-    def update():
-        dt = min(time.dt, 1 / 30)
-        controls = ai_driver.control(car, track) if state["ai"] else read_ursina_inputs(state["aero"])
-        on_track = track.is_on_track(car.position)
-        car.update(dt, controls, 1.0 if on_track else OFF_TRACK_GRIP_SCALE)
-        checkpoints.update(dt, track.checkpoint_index_for_position(car.position))
-        car_visual.update(car)
-        forward = Vec3(math.cos(car.heading), 0, math.sin(car.heading))
-        car_world = to_world(car.position)
-        if state["cockpit"]:
-            camera.position = car_world + Vec3(0, 0.95, 0) + forward * 0.32
-            camera.rotation = (6, heading_to_yaw(car.heading), 0)
-            car_visual.root.enabled = False
-        else:
-            camera.position = car_world + Vec3(0, 8.5, 0) - forward * 8.5
-            camera.look_at(car_world + Vec3(0, 0.3, 0) + forward * 2.5)
-            car_visual.root.enabled = True
-        status.text = (
-            f"Speed {car.speed_kmh:5.1f} km/h\n"
-            f"Lap {checkpoints.state.lap_count}  CP {checkpoints.state.current_checkpoint + 1}/8\n"
-            f"{'AI' if state['ai'] else 'Manual'} | {'Cockpit' if state['cockpit'] else 'Chase'} | {'ON' if on_track else 'OFF TRACK'}\n"
-            "WASD drive | V cockpit | P AI | R reset"
-        )
-
+    STATUS = Text(text="Starting ApexDriveLab 3D...", origin=(-0.5, 0.5), position=(-0.86, 0.46), scale=0.9, background=True)
+    CAR_VISUAL.update(CAR)
+    update_camera()
     app.run()
 
 

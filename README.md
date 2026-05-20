@@ -119,6 +119,12 @@ Replay a saved lap:
 .\.venv\Scripts\python.exe .\replay.py .\runs\ai_lap.csv
 ```
 
+Export a self-contained 3D browser replay from telemetry:
+
+```powershell
+.\.venv\Scripts\python.exe .\experiments\export_3d_replay.py .\runs\ai_lap.csv
+```
+
 Controls:
 
 - `W` / `Up`: throttle
@@ -173,6 +179,7 @@ Controls:
 - `experiments/evaluate_vae_anomaly.py`: evaluates VAE reconstruction error as an anomaly detector with ROC/AUC.
 - `experiments/compare_setups.py`: setup comparison experiment.
 - `experiments/compare_runs.py`: telemetry comparison helper for manual vs AI or default vs optimized.
+- `experiments/export_3d_replay.py`: creates a browser-based 3D replay from telemetry CSV.
 - `experiments/validate_months_3_5.py`: repeatable validation report generator.
 - `experiments/final_demo_report.py`: final Month 6 experiment and report generator.
 - `telemetry/plots.py`: Matplotlib telemetry plotting helper.

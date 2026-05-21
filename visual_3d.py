@@ -21,12 +21,11 @@ from panda3d.core import (
     LPoint3,
     LVector3,
     TextNode,
-    TextFont,
 )
 
 from ai.racing_line import RacingLine
 from ai.rule_driver import RuleBasedDriver
-from config import CHECKPOINT_COUNT, HEIGHT, OFF_TRACK_GRIP_SCALE, WIDTH
+from config import HEIGHT, OFF_TRACK_GRIP_SCALE, WIDTH
 from physics.car import Car, CarInputs
 from physics.setup import SETUPS
 from track.checkpoints import CheckpointManager
@@ -44,11 +43,6 @@ def to_world(point) -> LPoint3:
 
 def car_forward(car: Car) -> LVector3:
     return LVector3(math.cos(car.heading), -math.sin(car.heading), 0.0)
-
-
-def car_heading_degrees(car: Car) -> float:
-    forward = car_forward(car)
-    return math.degrees(math.atan2(forward.x, forward.y))
 
 
 def normalized(vector: np.ndarray) -> np.ndarray:
@@ -95,14 +89,6 @@ def make_mesh(name: str, vertices: list[LPoint3], triangles: list[tuple[int, int
     node = GeomNode(name)
     node.addGeom(geom)
     return node
-
-
-def make_flat_shape(name: str, points: list[tuple[float, float]], z: float, color: tuple[float, float, float, float]) -> GeomNode:
-    vertices = [LPoint3(x, y, z) for x, y in points]
-    triangles = []
-    for index in range(1, len(points) - 1):
-        triangles.append((0, index, index + 1))
-    return make_mesh(name, vertices, triangles, color)
 
 
 def make_strip(name: str, points: list[tuple[float, float]], width: float, z: float, color: tuple[float, float, float, float], offset: float = 0.0) -> GeomNode:
@@ -363,43 +349,6 @@ class ApexDrive3D(ShowBase):
         self.add_sign("RASCASSE", (844.0, 642.0), (-24, 54), (1.0, 0.85, 0.38, 1.0))
         self.add_sign("ANTHONY NOGHES", (772.0, 626.0), (-92, 18))
 
-    def add_segment_kerbs(self) -> None:
-        for index, segment in enumerate(self.track._segments):
-            if index % 2:
-                continue
-            start = np.array(segment["start"], dtype=float)
-            end = np.array(segment["end"], dtype=float)
-            normal = segment_normal(start, end)
-            center = (start + end) * 0.5
-            length = max(float(segment["length"]), 1.0) / WORLD_SCALE
-            yaw = math.degrees(math.atan2((to_world(end) - to_world(start)).x, (to_world(end) - to_world(start)).y))
-            for side, color in ((-1.0, (0.86, 0.08, 0.10, 1.0)), (1.0, (0.96, 0.95, 0.90, 1.0))):
-                kerb_center = to_world(center + normal * self.track.road_width * 0.51 * side)
-                kerb = self.add_box("kerb", LPoint3(kerb_center.x, kerb_center.y, 0.075), (0.18, length * 0.82, 0.035), color)
-                kerb.setH(yaw)
-
-    def add_barriers(self) -> None:
-        for segment in self.track._segments:
-            start = np.array(segment["start"], dtype=float)
-            end = np.array(segment["end"], dtype=float)
-            normal = segment_normal(start, end)
-            length = max(float(segment["length"]), 1.0) / WORLD_SCALE
-            yaw = math.degrees(math.atan2((to_world(end) - to_world(start)).x, (to_world(end) - to_world(start)).y))
-            for side in (-1.0, 1.0):
-                center = to_world((start + end) * 0.5 + normal * self.track.road_width * 0.72 * side)
-                wall = self.add_box("barrier", LPoint3(center.x, center.y, 0.26), (0.10, length * 0.92, 0.42), (0.80, 0.82, 0.82, 1.0))
-                wall.setH(yaw)
-
-    def add_checkpoint_gates(self) -> None:
-        for index in range(CHECKPOINT_COUNT):
-            progress = self.track.total_length * index / CHECKPOINT_COUNT
-            point = self.track.point_at_progress(progress)
-            world = to_world(point)
-            gate = self.add_box("checkpoint", LPoint3(world.x, world.y, 0.08), (0.08, self.track.road_width / WORLD_SCALE, 0.06), (0.30, 0.70, 1.0, 1.0))
-            next_point = self.track.point_at_progress(progress + 10)
-            next_world = to_world(next_point)
-            gate.setH(math.degrees(math.atan2((next_world - world).x, (next_world - world).y)) + 90)
-
     def build_car(self) -> None:
         self.car_node = self.render.attachNewNode("car")
         create_f1_car_texture(CAR_TEXTURE_PATH)
@@ -413,25 +362,6 @@ class ApexDrive3D(ShowBase):
         self.car_sprite.setTexture(self.loader.loadTexture(texture_path), 1)
         self.car_sprite.setColor(1, 1, 1, 1)
         self.car_sprite.setTwoSided(True)
-
-    def car_shape(self, name: str, points: list[tuple[float, float]], z: float, color: tuple[float, float, float, float]):
-        shape = self.car_node.attachNewNode(make_flat_shape(name, points, z, color))
-        shape.setTwoSided(True)
-        shape.setTextureOff(1)
-        shape.setMaterialOff(1)
-        return shape
-
-    def car_part(self, name: str, position: tuple[float, float, float], scale: tuple[float, float, float], color: tuple[float, float, float, float]):
-        part = self.loader.loadModel("models/box")
-        part.reparentTo(self.car_node)
-        part.setName(name)
-        part.setPos(*position)
-        part.setScale(*scale)
-        part.setColor(*color)
-        part.setColorScale(*color)
-        part.setTextureOff(1)
-        part.setMaterialOff(1)
-        return part
 
     def build_hud(self) -> None:
         self.hud = OnscreenText(

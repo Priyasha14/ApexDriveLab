@@ -4,6 +4,8 @@ ApexDriveLab is a lightweight 2D top-down racing simulator focused on clean vehi
 
 ## Visual Preview
 
+![ApexDriveLab animated Monaco simulator demo](docs/assets/apexdrivelab-demo.gif)
+
 ![ApexDriveLab Monaco-style simulator preview](docs/assets/apexdrivelab-preview.png)
 
 ## Run

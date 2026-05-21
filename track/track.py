@@ -25,14 +25,14 @@ from config import (
 
 def monaco_buildings() -> list[tuple[pygame.Rect, float, tuple[int, int, int]]]:
     return [
-        (pygame.Rect(356, 178, 130, 82), 82.0, (102, 91, 82)),
-        (pygame.Rect(520, 152, 112, 74), 108.0, (132, 123, 108)),
-        (pygame.Rect(742, 132, 126, 86), 74.0, (116, 103, 96)),
-        (pygame.Rect(895, 158, 120, 92), 96.0, (150, 137, 116)),
-        (pygame.Rect(1038, 126, 112, 90), 70.0, (115, 122, 130)),
-        (pygame.Rect(354, 444, 116, 70), 76.0, (126, 111, 95)),
-        (pygame.Rect(700, 456, 150, 74), 64.0, (96, 103, 112)),
-        (pygame.Rect(870, 442, 116, 82), 72.0, (136, 124, 107)),
+        (pygame.Rect(900, 454, 112, 70), 72.0, (126, 111, 95)),
+        (pygame.Rect(690, 242, 132, 70), 108.0, (132, 123, 108)),
+        (pygame.Rect(570, 176, 122, 70), 96.0, (150, 137, 116)),
+        (pygame.Rect(432, 208, 92, 70), 82.0, (102, 91, 82)),
+        (pygame.Rect(276, 330, 86, 76), 78.0, (116, 103, 96)),
+        (pygame.Rect(720, 334, 188, 52), 62.0, (96, 103, 112)),
+        (pygame.Rect(1030, 514, 96, 80), 68.0, (136, 124, 107)),
+        (pygame.Rect(700, 610, 110, 66), 74.0, (115, 122, 130)),
     ]
 
 
@@ -41,31 +41,37 @@ class Track:
         self.center = TRACK_CENTER
         self.outer_radius = TRACK_OUTER_RADIUS
         self.inner_radius = TRACK_INNER_RADIUS
-        self.road_width = 124.0
+        self.road_width = 104.0
         self.centerline = [
-            (1035.0, 500.0),
-            (920.0, 562.0),
-            (760.0, 558.0),
-            (610.0, 520.0),
-            (500.0, 462.0),
-            (452.0, 386.0),
-            (505.0, 316.0),
-            (625.0, 286.0),
-            (714.0, 230.0),
-            (700.0, 166.0),
-            (570.0, 126.0),
-            (412.0, 136.0),
-            (300.0, 206.0),
-            (258.0, 300.0),
-            (302.0, 386.0),
-            (430.0, 412.0),
-            (560.0, 392.0),
-            (682.0, 374.0),
-            (822.0, 346.0),
-            (970.0, 316.0),
-            (1080.0, 262.0),
-            (1136.0, 320.0),
-            (1100.0, 412.0),
+            (1010.0, 570.0),  # Start/finish straight
+            (875.0, 566.0),
+            (760.0, 536.0),  # Sainte Devote
+            (700.0, 466.0),  # Beau Rivage climb
+            (650.0, 392.0),
+            (600.0, 322.0),  # Massenet
+            (524.0, 282.0),  # Casino Square
+            (438.0, 306.0),
+            (382.0, 350.0),  # Mirabeau Haute
+            (338.0, 384.0),
+            (308.0, 420.0),  # Fairmont hairpin entry
+            (326.0, 462.0),
+            (390.0, 470.0),  # Mirabeau Bas
+            (468.0, 444.0),
+            (540.0, 410.0),  # Portier
+            (648.0, 374.0),  # Tunnel
+            (788.0, 364.0),
+            (924.0, 386.0),
+            (982.0, 426.0),  # Nouvelle Chicane
+            (936.0, 470.0),
+            (1018.0, 506.0),
+            (1098.0, 520.0),  # Tabac
+            (1138.0, 560.0),  # Swimming Pool
+            (1082.0, 600.0),
+            (990.0, 578.0),
+            (930.0, 616.0),
+            (844.0, 642.0),  # La Rascasse
+            (772.0, 626.0),  # Antony Noghes
+            (760.0, 584.0),
         ]
         self._segments = self._build_segments()
         self.total_length = sum(segment["length"] for segment in self._segments)
@@ -166,13 +172,13 @@ class Track:
             pygame.draw.line(screen, (40, 76, 54), (x, 0), (x - 110, HEIGHT), 20)
 
     def _draw_harbor(self, screen: pygame.Surface) -> None:
-        water = pygame.Rect(770, 500, 510, 220)
-        pygame.draw.rect(screen, (23, 75, 101), water)
-        for y in range(520, 710, 34):
-            pygame.draw.line(screen, (41, 102, 132), (790, y), (1260, y + 20), 2)
-        for x in [840, 920, 1010, 1115, 1200]:
-            pygame.draw.polygon(screen, (240, 238, 218), [(x, 620), (x + 28, 646), (x - 18, 650)])
-            pygame.draw.line(screen, (220, 220, 210), (x, 620), (x, 582), 2)
+        pygame.draw.polygon(screen, (23, 75, 101), [(760, 470), (1280, 480), (1280, 720), (940, 720), (870, 620), (930, 548)])
+        pygame.draw.polygon(screen, (41, 102, 132), [(925, 540), (1280, 545), (1280, 610), (1000, 595)])
+        for y in range(520, 700, 34):
+            pygame.draw.line(screen, (48, 113, 144), (940, y), (1260, y + 14), 2)
+        for x, y in [(990, 622), (1085, 640), (1180, 626), (1135, 690)]:
+            pygame.draw.polygon(screen, (240, 238, 218), [(x, y), (x + 28, y + 24), (x - 18, y + 28)])
+            pygame.draw.line(screen, (220, 220, 210), (x, y), (x, y - 36), 2)
 
     def _draw_road(self, screen: pygame.Surface) -> None:
         points = [(int(x), int(y)) for x, y in self.centerline]
@@ -234,12 +240,18 @@ class Track:
     def _draw_landmarks(self, screen: pygame.Surface) -> None:
         font = pygame.font.Font(None, 22)
         labels = [
-            ("Sainte Devote", (920, 584)),
-            ("Casino", (640, 258)),
-            ("Hairpin", (262, 280)),
-            ("Tunnel", (835, 322)),
-            ("Harbor", (1050, 590)),
-            ("Rascasse", (1116, 440)),
+            ("Sainte Devote", (738, 500)),
+            ("Massenet", (628, 350)),
+            ("Casino", (500, 250)),
+            ("Mirabeau", (370, 322)),
+            ("Fairmont Hairpin", (232, 408)),
+            ("Portier", (512, 390)),
+            ("Tunnel", (720, 332)),
+            ("Nouvelle Chicane", (938, 430)),
+            ("Tabac", (1084, 494)),
+            ("Swimming Pool", (1048, 594)),
+            ("Rascasse", (822, 650)),
+            ("Anthony Noghes", (712, 610)),
         ]
         for text, pos in labels:
             surface = font.render(text, True, (225, 230, 225))

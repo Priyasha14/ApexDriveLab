@@ -1,6 +1,6 @@
 # ApexDriveLab
 
-ApexDriveLab is a lightweight 2D top-down racing simulator focused on clean vehicle dynamics, track logic, lap timing, and telemetry-friendly structure.
+ApexDriveLab is a lightweight Formula-style racing simulator focused on vehicle dynamics, track logic, lap timing, telemetry, and driver-control experiments. It includes a 2D Pygame simulator for fast physics work and a Panda3D visual viewer for a Monaco-style street-circuit demo.
 
 ## Visual Preview
 

@@ -10,7 +10,7 @@ class HUD:
         self.small_font = pygame.font.Font(None, 22)
 
     def draw(self, screen: pygame.Surface, car, lap_state, on_track: bool, debug_enabled: bool, ai_enabled: bool = False, ai_state=None) -> None:
-        panel = pygame.Rect(16, 14, 310, 422)
+        panel = pygame.Rect(16, 14, 310, 540)
         pygame.draw.rect(screen, HUD_PANEL_COLOR, panel, border_radius=8)
         pygame.draw.rect(screen, HUD_PANEL_BORDER, panel, 1, border_radius=8)
 
@@ -28,8 +28,11 @@ class HUD:
             f"Grip use: {car.tire_state.combined_grip_usage * 100:5.1f}%",
             f"Balance: {car.handling_balance}",
             f"Setup: {car.setup.name}",
-            f"Aero: {car.aero_state.mode}",
+            f"Aero: {car.aero_state.mode}{' +DRS' if car.aero_state.drs_active else ''}",
+            f"Gear: {car.powertrain_state.gear}  {car.powertrain_state.rpm:5.0f} rpm",
             f"Battery: {car.hybrid_state.charge_fraction * 100:5.1f}%",
+            f"Brakes: {car.brake_state.temperature:5.0f} C ({car.brake_state.performance * 100:3.0f}%)",
+            f"Tire T: F {car.tire_state.front_temperature:4.0f} / R {car.tire_state.rear_temperature:4.0f} C",
             f"Driver: {'AI' if ai_enabled else 'manual'}",
             f"Debug: {'ON' if debug_enabled else 'OFF'}",
         ]
@@ -44,7 +47,7 @@ class HUD:
         self._draw_input_meter(screen, car, pygame.Rect(950, 118, 300, 116))
         if ai_enabled and ai_state:
             self._draw_ai_meter(screen, ai_state, pygame.Rect(950, 246, 300, 96))
-        help_text = "Controls: W/S/A/D drive | V cockpit | P AI | 1-7 setup | Space deploy | Z/X/C aero | T data | F1 | R | Esc"
+        help_text = "Controls: W/S/A/D drive | E DRS | V cockpit | P AI | 1-7 setup | Space deploy | Z/X/C aero | T data | F1 | R | Esc"
         surface = self.small_font.render(help_text, True, HUD_COLOR)
         help_rect = surface.get_rect(center=(screen.get_width() // 2, screen.get_height() - 24))
         pygame.draw.rect(screen, HUD_PANEL_COLOR, help_rect.inflate(24, 12), border_radius=7)

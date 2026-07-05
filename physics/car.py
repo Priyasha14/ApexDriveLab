@@ -1,3 +1,15 @@
+"""Vehicle dynamics core: nonlinear bicycle model.
+
+Pipeline each step:
+  1. Suspension: previous-frame aero load sets ride height (ground effect).
+  2. Aerodynamics: wing + floor downforce, DRS, yaw sensitivity, drag.
+  3. Powertrain: torque curve + gearbox -> drive acceleration, plus ERS deploy.
+  4. Brakes: thermal model scales braking performance.
+  5. Tires: Pacejka Magic Formula lateral forces per axle with load
+     sensitivity, per-axle temperature and wear; combined-slip friction circle.
+  6. Rigid body: integrate accelerations, yaw dynamics, position.
+"""
+
 import math
 from dataclasses import dataclass, field
 
@@ -25,11 +37,27 @@ from config import (
     STATIC_FRONT_LOAD,
     STATIC_REAR_LOAD,
     STEER_RESPONSE,
+    RIDE_HEIGHT_STATIC,
 )
-from physics.aero import AeroState, choose_aero_mode, compute_aero_state
+from physics.aero import (
+    AeroState,
+    choose_aero_mode,
+    compute_aero_state,
+    drs_available,
+    ride_height_from_load,
+)
+from physics.brakes import BrakeState
 from physics.hybrid import HybridState
+from physics.powertrain import PowertrainState
 from physics.setup import SETUPS, CarSetup
-from physics.tires import TireState
+from physics.tires import (
+    TireState,
+    load_sensitivity_multiplier,
+    magic_formula,
+    peak_slip_angle,
+    temperature_grip_multiplier,
+    wear_grip_multiplier,
+)
 from physics.vector_utils import clamp, from_angle, length, rotate_points, vec2
 
 
@@ -40,6 +68,7 @@ class CarInputs:
     steer: float = 0.0
     deploy_hybrid: bool = False
     aero_mode: str | None = None
+    drs: bool | None = None  # None = automatic, True/False = manual override
 
 
 @dataclass
@@ -59,6 +88,9 @@ class Car:
     hybrid_state: HybridState = field(default_factory=HybridState)
     inputs: CarInputs = field(default_factory=CarInputs)
     tire_state: TireState = field(default_factory=TireState)
+    powertrain_state: PowertrainState = field(default_factory=PowertrainState)
+    brake_state: BrakeState = field(default_factory=BrakeState)
+    ride_height: float = RIDE_HEIGHT_STATIC
 
     def reset(self) -> None:
         self.position = vec2(*CAR_START_POSITION)
@@ -75,6 +107,9 @@ class Car:
         self.tire_state = TireState()
         self.aero_state = AeroState()
         self.hybrid_state.reset()
+        self.powertrain_state.reset()
+        self.brake_state.reset()
+        self.ride_height = RIDE_HEIGHT_STATIC
 
     @property
     def speed(self) -> float:
@@ -90,9 +125,17 @@ class Car:
         right = from_angle(self.heading + math.pi / 2.0)
         vx = float(np.dot(self.velocity, forward))
         vy = float(np.dot(self.velocity, right))
-        signed_forward_speed = vx
         speed_mps = self.speed / SIM_ACCEL_SCALE
+
+        # ------ 1. Suspension / ride height from last frame's aero load ------
+        self.ride_height = ride_height_from_load(self.aero_state.downforce_acceleration)
+
+        # ------ 2. Aerodynamics ------
         aero_mode = choose_aero_mode(self.speed_kmh, inputs.steer, inputs.aero_mode)
+        if inputs.drs is None:
+            drs_open = drs_available(self.speed_kmh, inputs.steer, inputs.throttle)
+        else:
+            drs_open = inputs.drs and drs_available(self.speed_kmh, inputs.steer, max(inputs.throttle, 0.71))
         self.aero_state = compute_aero_state(
             speed_mps=speed_mps,
             mode_name=aero_mode,
@@ -103,22 +146,27 @@ class Car:
             aero_balance_front=self.setup.aero_balance_front,
             mass=CAR_MASS,
             sim_accel_scale=SIM_ACCEL_SCALE,
+            steer_fraction=inputs.steer,
+            ride_height=self.ride_height,
+            drs_open=drs_open,
         )
 
-        target_steering = inputs.steer * MAX_STEER_ANGLE
+        # ------ Steering with speed-sensitive authority ------
+        high_speed_tightening = 1.0 / (1.0 + (self.speed_kmh / 320.0) ** 2)
+        target_steering = inputs.steer * MAX_STEER_ANGLE * (0.55 + 0.45 * high_speed_tightening)
         response = clamp(STEER_RESPONSE * dt, 0.0, 1.0)
         self.steering_angle += (target_steering - self.steering_angle) * response
 
-        front_slip, rear_slip = self._slip_angles(vx, vy)
-        front_lateral = -self.setup.front_cornering_stiffness * front_slip
-        rear_lateral = -self.setup.rear_cornering_stiffness * rear_slip
-
+        # ------ 3. Powertrain + hybrid ------
         hybrid_accel = self.hybrid_state.update(dt, speed_mps, inputs.deploy_hybrid, inputs.brake, inputs.throttle) * SIM_ACCEL_SCALE
-        throttle_accel = inputs.throttle * self.setup.engine_accel + hybrid_accel
-        brake_accel = inputs.brake * self.setup.brake_accel
-        rear_longitudinal = throttle_accel if vx > -15.0 else throttle_accel * 0.35
-        front_longitudinal = 0.0
+        drive_accel = self.powertrain_state.update(dt, self.speed, inputs.throttle, self.setup.engine_accel) + hybrid_accel
 
+        # ------ 4. Brakes with thermal fade ------
+        brake_performance = self.brake_state.update(dt, inputs.brake, self.speed)
+        brake_accel = inputs.brake * self.setup.brake_accel * brake_performance
+
+        rear_longitudinal = drive_accel if vx > -15.0 else drive_accel * 0.35
+        front_longitudinal = 0.0
         if self.speed > 2.0:
             brake_direction = -math.copysign(1.0, vx or 1.0)
             front_longitudinal += brake_direction * brake_accel * self.setup.brake_bias_front
@@ -126,21 +174,47 @@ class Car:
         elif inputs.brake > 0.0 and inputs.throttle <= 0.0:
             rear_longitudinal -= MAX_REVERSE_ACCEL
 
-        front_load, rear_load, lateral_transfer = self._load_distribution(rear_longitudinal + front_longitudinal, front_lateral + rear_lateral)
+        # ------ 5. Tires: loads, Pacejka lateral forces, friction circle ------
+        front_slip, rear_slip = self._slip_angles(vx, vy)
+        front_load, rear_load, lateral_transfer = self._load_distribution(
+            rear_longitudinal + front_longitudinal,
+            self.lateral_acceleration,
+        )
+
         aero_front_load = self.aero_state.front_downforce / CAR_MASS * SIM_ACCEL_SCALE / max(self.setup.tire_grip_accel, 1.0)
         aero_rear_load = self.aero_state.rear_downforce / CAR_MASS * SIM_ACCEL_SCALE / max(self.setup.tire_grip_accel, 1.0)
-        tire_condition = self._tire_condition_multiplier(self.tire_state.temperature, self.tire_state.wear)
-        front_limit = self.setup.tire_grip_accel * (front_load + aero_front_load) * grip_scale * tire_condition
-        rear_limit = self.setup.tire_grip_accel * (rear_load + aero_rear_load) * grip_scale * tire_condition
+
+        front_condition = temperature_grip_multiplier(self.tire_state.front_temperature) * wear_grip_multiplier(self.tire_state.front_wear)
+        rear_condition = temperature_grip_multiplier(self.tire_state.rear_temperature) * wear_grip_multiplier(self.tire_state.rear_wear)
+
+        front_limit = (
+            self.setup.tire_grip_accel
+            * (front_load + aero_front_load)
+            * load_sensitivity_multiplier(front_load)
+            * grip_scale
+            * front_condition
+        )
+        rear_limit = (
+            self.setup.tire_grip_accel
+            * (rear_load + aero_rear_load)
+            * load_sensitivity_multiplier(rear_load)
+            * grip_scale
+            * rear_condition
+        )
+
+        front_lateral = magic_formula(front_slip, self.setup.front_cornering_stiffness, front_limit)
+        rear_lateral = magic_formula(rear_slip, self.setup.rear_cornering_stiffness, rear_limit)
 
         front_longitudinal, front_lateral, front_usage = self._apply_friction_circle(front_longitudinal, front_lateral, front_limit)
         rear_longitudinal, rear_lateral, rear_usage = self._apply_friction_circle(rear_longitudinal, rear_lateral, rear_limit)
 
+        # ------ Resistive forces ------
         drag_multiplier = 1.0 if grip_scale >= 0.99 else OFF_TRACK_DRAG_MULTIPLIER
         drag = -vx * abs(vx) * LINEAR_DRAG * 0.004 * drag_multiplier
         rolling = -math.copysign(ROLLING_RESISTANCE, vx) if abs(vx) > 1.0 else 0.0
-
         aero_drag = -math.copysign(self.aero_state.drag_acceleration, vx) if abs(vx) > 1.0 else 0.0
+
+        # ------ 6. Rigid body integration ------
         local_ax = front_longitudinal + rear_longitudinal + drag + rolling + aero_drag
         local_ay = front_lateral + rear_lateral
         self.longitudinal_acceleration = local_ax
@@ -166,6 +240,8 @@ class Car:
             rear_load,
             front_usage,
             rear_usage,
+            front_limit,
+            rear_limit,
             dt,
         )
 
@@ -187,8 +263,13 @@ class Car:
     def set_tire_condition(self, temperature: float | None = None, wear: float | None = None) -> None:
         if temperature is not None:
             self.tire_state.temperature = temperature
+            self.tire_state.front_temperature = temperature
+            self.tire_state.rear_temperature = temperature
         if wear is not None:
-            self.tire_state.wear = clamp(wear, 0.0, 1.0)
+            wear = clamp(wear, 0.0, 1.0)
+            self.tire_state.wear = wear
+            self.tire_state.front_wear = wear
+            self.tire_state.rear_wear = wear
 
     def _slip_angles(self, vx: float, vy: float) -> tuple[float, float]:
         speed_for_slip = math.copysign(max(abs(vx), MIN_SLIP_SPEED), vx if abs(vx) > 1.0 else 1.0)
@@ -220,16 +301,6 @@ class Car:
             self.velocity *= 0.0
             self.yaw_rate = 0.0
 
-    def _tire_condition_multiplier(self, temperature: float, wear: float) -> float:
-        if temperature < 70.0:
-            temp_factor = 0.45 + max(0.0, temperature - 20.0) / 50.0 * 0.40
-        elif temperature <= 105.0:
-            temp_factor = 1.0
-        else:
-            temp_factor = max(0.72, 1.0 - (temperature - 105.0) / 55.0 * 0.28)
-        wear_factor = max(0.38, 1.0 - wear * 0.62)
-        return clamp(temp_factor * wear_factor, 0.30, 1.05)
-
     def _update_tire_state(
         self,
         front_slip: float,
@@ -242,10 +313,11 @@ class Car:
         rear_load: float,
         front_usage: float,
         rear_usage: float,
+        front_limit: float,
+        rear_limit: float,
         dt: float,
     ) -> None:
-        previous_temperature = self.tire_state.temperature
-        previous_wear = self.tire_state.wear
+        previous = self.tire_state
         front_lateral_usage = abs(front_lateral) / max(self.setup.tire_grip_accel * front_load, 1.0)
         rear_lateral_usage = abs(rear_lateral) / max(self.setup.tire_grip_accel * rear_load, 1.0)
         lateral_usage = max(front_lateral_usage, rear_lateral_usage)
@@ -258,14 +330,37 @@ class Car:
         else:
             self.handling_balance = "neutral"
 
-        target_temperature = 62.0 + combined_usage * 45.0 + abs(self.lateral_acceleration) * 0.006
-        temperature = previous_temperature + (target_temperature - previous_temperature) * min(1.0, dt * 0.18)
-        wear = previous_wear + (combined_usage * combined_usage) * dt * 0.00075
+        # Peak slip angles and saturation (how far past the MF peak each axle is).
+        front_peak = peak_slip_angle(self.setup.front_cornering_stiffness, max(front_limit, 1.0))
+        rear_peak = peak_slip_angle(self.setup.rear_cornering_stiffness, max(rear_limit, 1.0))
+        front_saturation = abs(front_slip) / max(front_peak, 1e-6)
+        rear_saturation = abs(rear_slip) / max(rear_peak, 1e-6)
+
+        # Per-axle thermals: sliding (post-peak) heats tires far faster than grip usage alone.
+        front_slide_heat = max(0.0, front_saturation - 1.0) * 22.0
+        rear_slide_heat = max(0.0, rear_saturation - 1.0) * 22.0
+        front_target = 62.0 + front_usage * 45.0 + abs(self.lateral_acceleration) * 0.006 + front_slide_heat
+        rear_target = 62.0 + rear_usage * 45.0 + abs(self.lateral_acceleration) * 0.006 + rear_slide_heat
+        front_temperature = previous.front_temperature + (front_target - previous.front_temperature) * min(1.0, dt * 0.18)
+        rear_temperature = previous.rear_temperature + (rear_target - previous.rear_temperature) * min(1.0, dt * 0.18)
+
+        # Per-axle wear: quadratic in usage, with a sliding penalty.
+        front_wear = previous.front_wear + (front_usage * front_usage + max(0.0, front_saturation - 1.0) * 0.6) * dt * 0.00075
+        rear_wear = previous.rear_wear + (rear_usage * rear_usage + max(0.0, rear_saturation - 1.0) * 0.6) * dt * 0.00075
+        front_wear = clamp(front_wear, 0.0, 1.0)
+        rear_wear = clamp(rear_wear, 0.0, 1.0)
+
+        temperature = (front_temperature + rear_temperature) / 2.0
+        wear = max(front_wear, rear_wear)
+        condition = (
+            temperature_grip_multiplier(front_temperature) * wear_grip_multiplier(front_wear)
+            + temperature_grip_multiplier(rear_temperature) * wear_grip_multiplier(rear_wear)
+        ) / 2.0
 
         self.tire_state = TireState(
             temperature=temperature,
-            wear=clamp(wear, 0.0, 1.0),
-            condition_grip_multiplier=self._tire_condition_multiplier(temperature, clamp(wear, 0.0, 1.0)),
+            wear=wear,
+            condition_grip_multiplier=clamp(condition, 0.30, 1.05),
             front_slip_angle=front_slip,
             rear_slip_angle=rear_slip,
             front_lateral_force=front_lateral,
@@ -279,4 +374,12 @@ class Car:
             combined_grip_usage=combined_usage,
             front_grip_usage=front_usage,
             rear_grip_usage=rear_usage,
+            front_temperature=front_temperature,
+            rear_temperature=rear_temperature,
+            front_wear=front_wear,
+            rear_wear=rear_wear,
+            front_peak_slip=front_peak,
+            rear_peak_slip=rear_peak,
+            front_saturation=front_saturation,
+            rear_saturation=rear_saturation,
         )

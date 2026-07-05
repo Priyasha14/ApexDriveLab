@@ -37,7 +37,8 @@ def read_inputs(aero_override: str | None) -> CarInputs:
     if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
         steer += 1.0
     deploy_hybrid = keys[pygame.K_SPACE]
-    return CarInputs(throttle=throttle, brake=brake, steer=steer, deploy_hybrid=deploy_hybrid, aero_mode=aero_override)
+    drs = True if keys[pygame.K_e] else None  # E requests DRS; otherwise automatic
+    return CarInputs(throttle=throttle, brake=brake, steer=steer, deploy_hybrid=deploy_hybrid, aero_mode=aero_override, drs=drs)
 
 
 def draw_car(screen: pygame.Surface, car: Car) -> None:

@@ -2,6 +2,20 @@
 
 ApexDriveLab is a lightweight Formula-style racing simulator focused on vehicle dynamics, track logic, lap timing, telemetry, and driver-control experiments. It includes a 2D Pygame simulator for fast physics work and a Panda3D visual viewer for a Monaco-style street-circuit demo.
 
+
+## Physics Engine v2 (Advanced Vehicle Dynamics)
+
+The physics core is a nonlinear bicycle model with the following systems:
+
+- **Pacejka Magic Formula tires** (`physics/tires.py`) - lateral force follows the Magic Formula with a real peak and post-peak falloff, so overdriving the car now *loses* grip (breakaway) instead of plateauing. The linear region is calibrated to the setup's cornering stiffness. Includes tire load sensitivity, per-axle temperature (cold = greasy, overheated = melting) and per-axle wear with extra degradation while sliding past the peak slip angle.
+- **Ground-effect aerodynamics** (`physics/aero.py`) - downforce is split between wings and a Venturi floor. Aero load compresses the suspension, lowering ride height and increasing floor downforce (a real nonlinearity of modern F1 cars); below a stall threshold the floor chokes (porpoising). Downforce bleeds with steering/yaw, and a slipstream helper models tow + dirty air for future multi-car racing.
+- **DRS** - the rear wing opens automatically on straights (fast, low steer, full throttle), or manually with **E**, cutting drag and rear downforce.
+- **Powertrain** (`physics/powertrain.py`) - torque curve + 8-speed sequential gearbox with ignition cuts on upshifts. Below the power corner speed the car is torque-limited; above it acceleration falls off as P/v, so the car pulls out of corners and crawls toward top speed like the real thing. Gear and RPM are on the HUD and in telemetry.
+- **Brake thermodynamics** (`physics/brakes.py`) - carbon discs need temperature to bite and fade when cooked; abuse them down a long stint and stopping power drops to ~70%.
+- **Hybrid ERS v2** (`physics/hybrid.py`) - MGU-K deployment ramps in over ~0.25 s, harvesting torque scales with speed, the battery derates near empty, and lifetime deployed/recovered energy is tracked in telemetry.
+
+All new state is logged: gear, rpm, DRS, ride height, floor stall, wing vs ground-effect downforce split, aero efficiency (L/D), brake temperature/performance, per-axle tire temperature/wear/saturation, and ERS energy totals.
+
 ## Visual Preview
 
 ![ApexDriveLab animated Monaco simulator demo](docs/assets/apexdrivelab-demo.gif)

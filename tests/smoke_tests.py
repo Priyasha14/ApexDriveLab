@@ -43,9 +43,11 @@ def test_setup_switch_changes_vehicle_response() -> None:
     rotation = Car()
     rotation.apply_setup(SETUPS["rotation"])
 
+    # Deeper steering exercises the nonlinear (Magic Formula) tire region
+    # where setup differences are most visible.
     for _ in range(120):
-        balanced.update(1 / 60, CarInputs(throttle=1.0, steer=-0.25), 1.0)
-        rotation.update(1 / 60, CarInputs(throttle=1.0, steer=-0.25), 1.0)
+        balanced.update(1 / 60, CarInputs(throttle=1.0, steer=-0.5), 1.0)
+        rotation.update(1 / 60, CarInputs(throttle=1.0, steer=-0.5), 1.0)
 
     assert rotation.setup.name == "rotation"
     assert abs(rotation.yaw_rate - balanced.yaw_rate) > 0.01

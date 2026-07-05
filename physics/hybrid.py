@@ -1,3 +1,5 @@
+"""Hybrid energy system (ERS): ramped MGU-K deployment, blended regen, derating."""
+
 from dataclasses import dataclass
 
 
@@ -9,6 +11,11 @@ class HybridState:
     max_recovery_power: float = 90_000.0
     deploy_power: float = 0.0
     recovery_power: float = 0.0
+    # --- new channels (advanced model) ---
+    deploy_ramp: float = 0.0        # 0..1, power ramps in over ~0.25 s
+    derate_fraction: float = 1.0    # deployment limit when battery is low
+    total_deployed: float = 0.0     # lifetime energy deployed (J)
+    total_recovered: float = 0.0    # lifetime energy harvested (J)
 
     @property
     def charge_fraction(self) -> float:
@@ -20,22 +27,44 @@ class HybridState:
         self.energy = min(self.capacity, self.capacity * 0.70)
         self.deploy_power = 0.0
         self.recovery_power = 0.0
+        self.deploy_ramp = 0.0
+        self.derate_fraction = 1.0
+        self.total_deployed = 0.0
+        self.total_recovered = 0.0
 
     def update(self, dt: float, speed_mps: float, deploy_requested: bool, brake: float, throttle: float) -> float:
         self.deploy_power = 0.0
         self.recovery_power = 0.0
         deploy_accel_mps2 = 0.0
 
-        if deploy_requested and throttle > 0.2 and self.energy > 1.0 and speed_mps > 5.0:
-            usable_power = min(self.max_deploy_power, self.energy / max(dt, 1e-6))
+        # Battery protection: derate deployment power as charge approaches empty.
+        charge = self.charge_fraction
+        self.derate_fraction = 1.0 if charge > 0.15 else max(0.0, charge / 0.15)
+
+        wants_deploy = deploy_requested and throttle > 0.2 and self.energy > 1.0 and speed_mps > 5.0
+        ramp_target = 1.0 if wants_deploy else 0.0
+        ramp_rate = 4.0 if wants_deploy else 8.0  # spool in ~0.25 s, cut fast
+        self.deploy_ramp += (ramp_target - self.deploy_ramp) * min(1.0, ramp_rate * dt)
+
+        if wants_deploy and self.deploy_ramp > 0.02:
+            usable_power = min(
+                self.max_deploy_power * self.deploy_ramp * self.derate_fraction,
+                self.energy / max(dt, 1e-6),
+            )
             self.deploy_power = usable_power
             self.energy -= usable_power * dt
+            self.total_deployed += usable_power * dt
             deploy_accel_mps2 = usable_power / max(speed_mps, 5.0) / 798.0
 
+        # Regen: blended with braking, plus lift-and-coast harvesting.
         recovery_request = max(brake, 0.35 if throttle < 0.05 and speed_mps > 8.0 else 0.0)
         if recovery_request > 0.0 and self.energy < self.capacity:
-            self.recovery_power = min(self.max_recovery_power * recovery_request, (self.capacity - self.energy) / max(dt, 1e-6))
+            headroom = (self.capacity - self.energy) / max(dt, 1e-6)
+            # Harvesting torque scales with speed - you cannot regen hard at a crawl.
+            speed_factor = min(1.0, speed_mps / 25.0)
+            self.recovery_power = min(self.max_recovery_power * recovery_request * speed_factor, headroom)
             self.energy += self.recovery_power * dt
+            self.total_recovered += self.recovery_power * dt
 
         self.energy = max(0.0, min(self.energy, self.capacity))
         return deploy_accel_mps2
